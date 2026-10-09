@@ -806,7 +806,9 @@ let modalVia = null;
 let currentTab = 'map';
 let pendingConfirmation = null;
 let usingLocalFallback = USE_LOCAL_DATA;
-let isViewerMode = (new URLSearchParams(window.location.search).get('mode') === 'viewer');
+// Por defecto: Visor. Solo se activa Editor si la URL lo indica explícitamente
+// o si hay sesión activa de editor guardada en sessionStorage.
+let isViewerMode = (new URLSearchParams(window.location.search).get('mode') !== 'editor');
 const MAX_ZOOM = 120; // zoom maximo para ver soporte a soporte
 let historyData = null;
 let alignmentProfile = [];
