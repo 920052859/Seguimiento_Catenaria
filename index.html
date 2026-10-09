@@ -1,0 +1,1277 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Seguimiento Gráfico Catenaria – Tramo 3 y 4 | L2 Metro Lima</title>
+<style>
+/* ===== RESET & BASE ===== */
+*{margin:0;padding:0;box-sizing:border-box}
+:root{
+  --bg:#0e1117;--bg2:#161b26;--bg3:#1e2535;--bg4:#252d3d;
+  --accent:#00c6ff;--accent2:#0072ff;
+  --green:#22c55e;--yellow:#f59e0b;--red:#ef4444;--purple:#a855f7;
+  --orange:#f97316;--pink:#ec4899;
+  --text:#e2e8f0;--text2:#94a3b8;--text3:#64748b;
+  --border:#2d3748;
+  --card-shadow: 0 4px 24px rgba(0,0,0,.4);
+}
+body{background:var(--bg);color:var(--text);font-family:'Segoe UI',system-ui,sans-serif;min-height:100vh;overflow-x:hidden}
+
+/* ===== HEADER ===== */
+.header{background:linear-gradient(135deg,#0a0f1e 0%,#1a1f35 100%);border-bottom:1px solid var(--border);padding:14px 20px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:100}
+.header-left{display:flex;align-items:center;gap:14px}
+.logo-line{width:4px;height:36px;background:linear-gradient(180deg,var(--accent),var(--accent2));border-radius:2px}
+.header h1{font-size:1.1rem;font-weight:700;letter-spacing:.3px}
+.header h1 span{color:var(--accent);font-size:.85rem;display:block;font-weight:400;margin-top:2px}
+.last-update{font-size:.75rem;color:var(--text3);text-align:right;line-height:1.6}
+.last-update b{color:var(--accent);display:block;font-size:.8rem}
+
+/* ===== NAV TABS ===== */
+.tabs{display:flex;gap:4px;padding:10px 20px;background:var(--bg2);border-bottom:1px solid var(--border)}
+.tab{padding:7px 18px;border-radius:6px;cursor:pointer;font-size:.85rem;color:var(--text2);border:1px solid transparent;transition:.2s;font-weight:500}
+.tab:hover{background:var(--bg3);color:var(--text)}
+.tab.active{background:linear-gradient(135deg,var(--accent2),var(--accent));color:#fff;border-color:transparent}
+
+/* ===== FILTERS ===== */
+.filters{display:flex;gap:10px;flex-wrap:wrap;padding:12px 20px;background:var(--bg2);border-bottom:1px solid var(--border);align-items:center}
+.filter-group{display:flex;align-items:center;gap:6px;font-size:.82rem;color:var(--text2)}
+.filter-group label{white-space:nowrap}
+select,input[type=text]{background:var(--bg3);border:1px solid var(--border);color:var(--text);padding:5px 10px;border-radius:6px;font-size:.82rem;outline:none}
+select:focus,input[type=text]:focus{border-color:var(--accent)}
+.search-box{background:var(--bg3);border:1px solid var(--border);color:var(--text);padding:5px 10px 5px 32px;border-radius:6px;font-size:.82rem;outline:none;width:180px;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='%2364748b' stroke-width='2'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' d='M21 21l-4.35-4.35M17 11A6 6 0 1 1 5 11a6 6 0 0 1 12 0z'/%3E%3C/svg%3E");background-repeat:no-repeat;background-size:16px;background-position:8px center}
+.user-box{margin-left:auto;display:flex;align-items:center;gap:6px}
+.user-box input{width:150px}
+
+/* ===== MAIN LAYOUT ===== */
+.main{padding:16px 20px;display:flex;flex-direction:column;gap:16px}
+
+/* ===== KPI CARDS ===== */
+.kpi-row{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px}
+.kpi-card{background:var(--bg2);border:1px solid var(--border);border-radius:10px;padding:14px;position:relative;overflow:hidden;cursor:default}
+.kpi-card::before{content:'';position:absolute;top:0;left:0;right:0;height:3px;background:var(--c,var(--accent))}
+.kpi-label{font-size:.72rem;color:var(--text3);text-transform:uppercase;letter-spacing:.8px;font-weight:600}
+.kpi-value{font-size:1.8rem;font-weight:700;color:var(--text);line-height:1.1;margin:6px 0 2px}
+.kpi-sub{font-size:.72rem;color:var(--text3)}
+.kpi-bar{height:4px;background:var(--bg4);border-radius:2px;margin-top:8px;overflow:hidden}
+.kpi-bar-fill{height:100%;border-radius:2px;background:var(--c,var(--accent));transition:width .6s ease}
+.kpi-weight{font-size:.68rem;color:var(--text3);margin-top:4px}
+
+/* ===== GANTT / TRAMO SUMMARY ===== */
+.section-title{font-size:.85rem;font-weight:600;color:var(--text2);text-transform:uppercase;letter-spacing:.8px;margin-bottom:10px;display:flex;align-items:center;gap:8px}
+.section-title::after{content:'';flex:1;height:1px;background:var(--border)}
+.gantt-wrap{background:var(--bg2);border:1px solid var(--border);border-radius:10px;overflow:hidden}
+.gantt-header{display:grid;grid-template-columns:140px 1fr 60px 60px;gap:8px;padding:8px 16px;background:var(--bg3);font-size:.72rem;color:var(--text3);text-transform:uppercase;letter-spacing:.6px;font-weight:600}
+.gantt-row{display:grid;grid-template-columns:140px 1fr 60px 60px;gap:8px;padding:8px 16px;border-top:1px solid var(--border);align-items:center;cursor:pointer;transition:.15s}
+.gantt-row:hover{background:var(--bg3)}
+.gantt-name{font-size:.82rem;font-weight:600;color:var(--text)}
+.gantt-bar-track{height:16px;background:var(--bg4);border-radius:4px;overflow:hidden;position:relative}
+.gantt-bar-fill{height:100%;border-radius:4px;position:absolute;left:0;transition:width .8s ease;display:flex;align-items:center;justify-content:flex-end;padding-right:4px;font-size:.6rem;color:#fff;font-weight:700;white-space:nowrap}
+.gantt-pct{font-size:.82rem;font-weight:700;text-align:right}
+.gantt-count{font-size:.72rem;color:var(--text3);text-align:right}
+
+/* ===== MAP VIEW (main visual) ===== */
+.map-wrap{background:var(--bg2);border:1px solid var(--border);border-radius:10px;overflow:hidden}
+.map-toolbar{display:flex;align-items:center;gap:10px;padding:10px 16px;background:var(--bg3);border-bottom:1px solid var(--border);flex-wrap:wrap}
+.map-toolbar-btn{padding:5px 12px;border-radius:5px;cursor:pointer;font-size:.78rem;border:1px solid var(--border);background:var(--bg4);color:var(--text2);transition:.15s}
+.map-toolbar-btn:hover{background:var(--bg3);color:var(--text)}
+.map-toolbar-btn.active{background:var(--accent2);color:#fff;border-color:transparent}
+.legend{display:flex;gap:12px;flex-wrap:wrap;margin-left:auto;font-size:.7rem}
+.legend-item{display:flex;align-items:center;gap:4px;color:var(--text2)}
+.legend-dot{width:10px;height:10px;border-radius:50%}
+#tunnel-canvas{display:block;width:100%;cursor:grab;background:#0a0f1e}
+#tunnel-canvas:active{cursor:grabbing}
+.map-hint{font-size:.72rem;color:var(--text3);padding:6px 16px;text-align:center;background:var(--bg);border-top:1px solid var(--border)}
+
+/* ===== TABLE VIEW ===== */
+.table-wrap{background:var(--bg2);border:1px solid var(--border);border-radius:10px;overflow:hidden}
+.table-toolbar{display:flex;align-items:center;gap:10px;padding:10px 16px;background:var(--bg3);border-bottom:1px solid var(--border)}
+.table-toolbar span{font-size:.82rem;color:var(--text2)}
+.btn{padding:5px 14px;border-radius:6px;cursor:pointer;font-size:.78rem;border:none;font-weight:500;transition:.15s}
+.btn-primary{background:linear-gradient(135deg,var(--accent2),var(--accent));color:#fff}
+.btn-primary:hover{opacity:.9}
+.btn-secondary{background:var(--bg4);color:var(--text2);border:1px solid var(--border)}
+.btn-secondary:hover{background:var(--bg3);color:var(--text)}
+table{width:100%;border-collapse:collapse;font-size:.78rem}
+thead th{padding:8px 10px;background:var(--bg3);color:var(--text3);font-weight:600;text-transform:uppercase;letter-spacing:.5px;font-size:.68rem;position:sticky;top:0;white-space:nowrap;border-bottom:1px solid var(--border)}
+tbody tr{border-top:1px solid var(--border);transition:.12s}
+tbody tr:hover{background:var(--bg3)}
+tbody td{padding:6px 10px;vertical-align:middle;white-space:nowrap}
+.td-id{font-family:monospace;font-size:.75rem;color:var(--accent);font-weight:600}
+.td-km{color:var(--text2);font-size:.72rem}
+.badge{display:inline-block;padding:2px 7px;border-radius:4px;font-size:.65rem;font-weight:700;letter-spacing:.3px}
+.badge-adicional{background:rgba(249,115,22,.18);color:var(--orange);border:1px solid rgba(249,115,22,.3)}
+.badge-interferencia{background:rgba(239,68,68,.18);color:var(--red);border:1px solid rgba(239,68,68,.3)}
+.badge-normal{display:none}
+/* Checkboxes custom */
+.chk-wrap{display:flex;justify-content:center}
+.chk{width:18px;height:18px;border-radius:4px;border:2px solid var(--border);cursor:pointer;display:flex;align-items:center;justify-content:center;transition:.15s;flex-shrink:0}
+.chk:hover{border-color:var(--accent)}
+.chk.done{border-color:var(--green);background:rgba(34,197,94,.15)}
+.chk.done::after{content:'✓';color:var(--green);font-size:.7rem;font-weight:700}
+.chk.na{border-color:var(--text3);background:var(--bg4);opacity:.5;cursor:not-allowed}
+.pct-cell{font-weight:700;font-size:.8rem}
+.pct-0{color:var(--text3)}
+.pct-low{color:var(--red)}
+.pct-mid{color:var(--yellow)}
+.pct-high{color:var(--green)}
+.comment-cell{min-width:120px;max-width:200px}
+.comment-input{background:transparent;border:none;color:var(--text2);font-size:.72rem;width:100%;outline:none;cursor:pointer;padding:2px 4px;border-radius:3px}
+.comment-input:focus{background:var(--bg3);border:1px solid var(--accent);color:var(--text)}
+.row-0{opacity:.7}
+.row-done{background:rgba(34,197,94,.04)}
+.row-adicional td:first-child{border-left:3px solid var(--orange)}
+.row-interferencia td:first-child{border-left:3px solid var(--red)}
+/* Pagination */
+.pagination{display:flex;gap:6px;align-items:center;justify-content:flex-end;padding:10px 16px;border-top:1px solid var(--border)}
+.page-btn{padding:4px 10px;border-radius:5px;cursor:pointer;font-size:.78rem;border:1px solid var(--border);background:var(--bg3);color:var(--text2);transition:.15s}
+.page-btn:hover{background:var(--bg4);color:var(--text)}
+.page-btn.active{background:var(--accent2);color:#fff;border-color:transparent}
+.page-info{font-size:.75rem;color:var(--text3)}
+.table-scroll{overflow-x:auto;max-height:520px;overflow-y:auto}
+
+/* ===== MODAL ===== */
+.modal-bg{display:none;position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:200;align-items:center;justify-content:center}
+.modal-bg.open{display:flex}
+.modal{background:var(--bg2);border:1px solid var(--border);border-radius:14px;padding:24px;width:92%;max-width:520px;box-shadow:var(--card-shadow);position:relative}
+.modal-close{position:absolute;top:14px;right:14px;cursor:pointer;color:var(--text3);font-size:1.2rem;width:28px;height:28px;display:flex;align-items:center;justify-content:center;border-radius:50%;transition:.15s}
+.modal-close:hover{background:var(--bg3);color:var(--text)}
+.modal h2{font-size:1rem;font-weight:700;margin-bottom:4px}
+.modal-meta{font-size:.75rem;color:var(--text3);margin-bottom:16px}
+.modal-acts{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:16px}
+.act-item{background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:10px 12px;cursor:pointer;transition:.2s;display:flex;align-items:center;gap:10px}
+.act-item:hover{border-color:var(--accent)}
+.act-item.done{background:rgba(34,197,94,.1);border-color:rgba(34,197,94,.4)}
+.act-item.done .act-icon{background:var(--green)}
+.act-icon{width:24px;height:24px;border-radius:50%;border:2px solid var(--border);display:flex;align-items:center;justify-content:center;font-size:.7rem;font-weight:700;flex-shrink:0;transition:.2s}
+.act-item.done .act-icon::after{content:'✓';color:#fff}
+.act-text{flex:1}
+.act-name{font-size:.8rem;font-weight:600;color:var(--text)}
+.act-weight{font-size:.68rem;color:var(--text3)}
+.modal-comment label{font-size:.78rem;color:var(--text2);font-weight:600;margin-bottom:4px;display:block}
+.modal-comment textarea{width:100%;background:var(--bg3);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:8px;font-size:.8rem;resize:vertical;min-height:60px;outline:none}
+.modal-comment textarea:focus{border-color:var(--accent)}
+.modal-footer{display:flex;gap:10px;margin-top:14px;justify-content:flex-end}
+.modal-badge{display:inline-block;padding:3px 8px;border-radius:4px;font-size:.65rem;font-weight:700;margin-left:8px}
+
+/* ===== TOAST ===== */
+.toast{position:fixed;bottom:24px;right:24px;background:var(--bg3);border:1px solid var(--green);color:var(--green);padding:10px 18px;border-radius:8px;font-size:.82rem;font-weight:600;z-index:300;transform:translateY(100px);opacity:0;transition:.3s}
+.toast.show{transform:translateY(0);opacity:1}
+.toast.error{border-color:var(--red);color:var(--red)}
+
+/* ===== RESPONSIVE ===== */
+@media(max-width:768px){
+  .header{flex-direction:column;align-items:flex-start;gap:8px}
+  .filters{gap:6px}
+  .kpi-row{grid-template-columns:repeat(2,1fr)}
+  .gantt-header,.gantt-row{grid-template-columns:100px 1fr 50px}
+  .gantt-count{display:none}
+  .modal-acts{grid-template-columns:1fr}
+  .tabs{overflow-x:auto;padding:8px 12px}
+}
+@media(max-width:480px){
+  .kpi-row{grid-template-columns:1fr 1fr}
+  .main{padding:10px 12px}
+  .header h1{font-size:.95rem}
+}
+</style>
+</head>
+<body>
+
+<!-- HEADER -->
+<div class="header">
+  <div class="header-left">
+    <div class="logo-line"></div>
+    <h1>Seguimiento Gráfico Catenaria – Tramo 3 y 4
+      <span>Línea 2 Metro Lima · Via 1 + Via 2</span>
+    </h1>
+  </div>
+  <div class="last-update">
+    <b id="last-ts">Cargando...</b>
+    Última actualización
+  </div>
+</div>
+
+<!-- TABS -->
+<div class="tabs">
+  <div class="tab active" onclick="switchTab('map')">🗺 Mapa Tunel</div>
+  <div class="tab" onclick="switchTab('kpi')">📊 KPIs y Avance</div>
+  <div class="tab" onclick="switchTab('table')">📋 Tabla Soportes</div>
+</div>
+
+<!-- FILTERS -->
+<div class="filters">
+  <div class="filter-group">
+    <label>Via:</label>
+    <select id="f-via" onchange="applyFilters()">
+      <option value="">Ambas</option>
+      <option value="1">Via 1</option>
+      <option value="2">Via 2</option>
+    </select>
+  </div>
+  <div class="filter-group">
+    <label>Tramo:</label>
+    <select id="f-tramo" onchange="applyFilters()">
+      <option value="">Todos</option>
+    </select>
+  </div>
+  <div class="filter-group">
+    <label>Estado:</label>
+    <select id="f-estado" onchange="applyFilters()">
+      <option value="">Todos</option>
+      <option value="sin_iniciar">Sin iniciar</option>
+      <option value="en_progreso">En progreso</option>
+      <option value="completo">Completo</option>
+      <option value="adicional">Adicional</option>
+      <option value="interferencia">Interferencia</option>
+    </select>
+  </div>
+  <input type="text" class="search-box" id="f-search" placeholder="Buscar soporte..." oninput="applyFilters()">
+  <div class="user-box">
+    <span style="font-size:.78rem;color:var(--text3)">Usuario:</span>
+    <input type="text" id="f-user" placeholder="Tu nombre" style="width:130px" value="">
+  </div>
+</div>
+
+<!-- MAIN CONTENT -->
+<div class="main">
+
+  <!-- ===== TAB: MAP ===== -->
+  <div id="tab-map">
+    <div class="section-title">Vista Continua del Tunel</div>
+    <div class="map-wrap">
+      <div class="map-toolbar">
+        <button class="map-toolbar-btn active" onclick="setMapMode('progreso')">Progreso</button>
+        <button class="map-toolbar-btn" onclick="setMapMode('actividad')">Por Actividad</button>
+        <button class="map-toolbar-btn" onclick="setMapMode('tipo')">Tipo Soporte</button>
+        <select id="map-act-sel" style="display:none" onchange="renderMap()">
+          <option value="perforacion">Perforación</option>
+          <option value="fijacion">Fijación</option>
+          <option value="soporte">Soporte</option>
+          <option value="mensula">Ménsula</option>
+          <option value="aislador">Aislador</option>
+          <option value="perfil">Perfil</option>
+          <option value="hilo">Hilo de Contacto</option>
+        </select>
+        <button class="map-toolbar-btn" onclick="zoomIn()">＋</button>
+        <button class="map-toolbar-btn" onclick="zoomOut()">－</button>
+        <button class="map-toolbar-btn" onclick="resetZoom()">⌂ Reset</button>
+        <div class="legend" id="map-legend"></div>
+      </div>
+      <canvas id="tunnel-canvas" height="320"></canvas>
+      <div class="map-hint">Scroll para zoom · Arrastra para desplazar · Clic en soporte para ver detalle</div>
+    </div>
+  </div>
+
+  <!-- ===== TAB: KPI ===== -->
+  <div id="tab-kpi" style="display:none">
+    <div class="section-title">Avance Global por Actividad</div>
+    <div class="kpi-row" id="kpi-cards"></div>
+    
+    <div class="section-title" style="margin-top:18px">Avance por Tramo (Estación - Estación)</div>
+    <div class="gantt-wrap">
+      <div class="gantt-header">
+        <div>Tramo</div>
+        <div>Avance</div>
+        <div>%</div>
+        <div>Soportes</div>
+      </div>
+      <div id="gantt-rows"></div>
+    </div>
+
+    <div class="section-title" style="margin-top:18px">Cronograma vs Avance Real</div>
+    <div class="gantt-wrap">
+      <div style="padding:14px 16px;font-size:.8rem;color:var(--text2)">
+        <div style="display:grid;grid-template-columns:140px 1fr 80px 80px 80px;gap:8px;font-weight:700;color:var(--text3);font-size:.72rem;text-transform:uppercase;margin-bottom:10px">
+          <span>Tramo</span><span>Periodo</span><span>Plan %</span><span>Real %</span><span>Delta</span>
+        </div>
+        <div id="crono-rows"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== TAB: TABLE ===== -->
+  <div id="tab-table" style="display:none">
+    <div class="table-wrap">
+      <div class="table-toolbar">
+        <span id="table-count">0 soportes</span>
+        <button class="btn btn-secondary" onclick="exportCSV()">⬇ Exportar CSV</button>
+        <button class="btn btn-primary" onclick="bulkMarkModal()">✓ Marcar seleccion</button>
+      </div>
+      <div class="table-scroll">
+        <table id="main-table">
+          <thead>
+            <tr>
+              <th><input type="checkbox" id="sel-all" onchange="toggleAll(this)"></th>
+              <th>ID Soporte</th>
+              <th>Via</th>
+              <th>Tramo</th>
+              <th>Km</th>
+              <th>Tipo</th>
+              <th title="Perforación 10%">Perf</th>
+              <th title="Fijación 20%">Fij</th>
+              <th title="Soporte 20%">Sop</th>
+              <th title="Ménsula 10%">Men</th>
+              <th title="Aislador 10%">Ais</th>
+              <th title="Perfil 20%">Per</th>
+              <th title="Hilo 10%">Hilo</th>
+              <th>%</th>
+              <th>Comentario</th>
+              <th>Actualizado</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody id="table-body"></tbody>
+        </table>
+      </div>
+      <div class="pagination">
+        <span class="page-info" id="page-info"></span>
+        <button class="page-btn" onclick="changePage(-1)">‹</button>
+        <div id="page-btns"></div>
+        <button class="page-btn" onclick="changePage(1)">›</button>
+      </div>
+    </div>
+  </div>
+
+</div><!-- /main -->
+
+<!-- MODAL: soporte detalle / editar -->
+<div class="modal-bg" id="modal">
+  <div class="modal">
+    <div class="modal-close" onclick="closeModal()">✕</div>
+    <h2 id="modal-title">Soporte</h2>
+    <div class="modal-meta" id="modal-meta"></div>
+    <div class="modal-acts" id="modal-acts"></div>
+    <div class="modal-comment">
+      <label>Comentario / Observación</label>
+      <textarea id="modal-comment" placeholder="Ej: No se pudo realizar por interferencia con ductos. Reprogramado para..."></textarea>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closeModal()">Cancelar</button>
+      <button class="btn btn-primary" onclick="saveModal()">💾 Guardar</button>
+    </div>
+  </div>
+</div>
+
+<!-- TOAST -->
+<div class="toast" id="toast"></div>
+
+<script>
+// ============================================================
+//  CONFIG - REEMPLAZAR CON TU URL DE APPS SCRIPT
+// ============================================================
+const APPS_SCRIPT_URL = 'TU_APPS_SCRIPT_URL_AQUI';
+// Si todavia no tienes Apps Script, pone en modo local:
+const USE_LOCAL_DATA = true; // cambiar a false cuando tengas el Apps Script
+
+// ============================================================
+//  CONSTANTES
+// ============================================================
+const ACTS = [
+  {key:'perforacion', label:'Perforación',  weight:0.10, color:'#818cf8'},
+  {key:'fijacion',    label:'Fijación',     weight:0.20, color:'#38bdf8'},
+  {key:'soporte',     label:'Soporte',      weight:0.20, color:'#34d399'},
+  {key:'mensula',     label:'Ménsula',      weight:0.10, color:'#a3e635'},
+  {key:'aislador',    label:'Aislador',     weight:0.10, color:'#fbbf24'},
+  {key:'perfil',      label:'Perfil',       weight:0.20, color:'#fb923c'},
+  {key:'hilo',        label:'Hilo Contacto',weight:0.10, color:'#f472b6'},
+];
+
+const TRAMO_ORDER = [
+  'PV11-E12','E12-E13','E13-E14','E14-E15',
+  'E15-E16','E16-E17','E17-E18','E18-E19','E19-PV19'
+];
+
+const CRONOGRAMA = [
+  {tramo:'PV11-E12',  inicio:'2026-08-12', fin:'2026-09-15'},
+  {tramo:'E12-E13',   inicio:'2026-09-16', fin:'2026-10-10'},
+  {tramo:'E13-E14',   inicio:'2026-10-11', fin:'2026-11-01'},
+  {tramo:'E14-E15',   inicio:'2026-11-02', fin:'2026-11-20'},
+  {tramo:'E15-E16',   inicio:'2026-11-21', fin:'2026-12-08'},
+  {tramo:'E16-E17',   inicio:'2026-08-12', fin:'2026-09-25'},
+  {tramo:'E17-E18',   inicio:'2026-09-26', fin:'2026-10-28'},
+  {tramo:'E18-E19',   inicio:'2026-10-29', fin:'2026-11-25'},
+  {tramo:'E19-PV19',  inicio:'2026-12-09', fin:'2027-01-27'},
+];
+
+// ============================================================
+//  STATE
+// ============================================================
+let allSoportes = [];
+let filtered = [];
+let currentPage = 1;
+const PAGE_SIZE = 50;
+let mapMode = 'progreso';
+let mapScale = 1;
+let mapOffsetX = 0;
+let mapOffsetY = 0;
+let isDragging = false;
+let dragStart = {x:0,y:0};
+let modalSoporte = null;
+let modalVia = null;
+let currentTab = 'map';
+
+// ============================================================
+//  INIT
+// ============================================================
+document.addEventListener('DOMContentLoaded', async () => {
+  await loadData();
+  populateFilters();
+  applyFilters();
+  renderKPIs();
+  renderGantt();
+  renderCrono();
+  renderMap();
+  setupMapEvents();
+});
+
+// ============================================================
+//  DATA LOADING
+// ============================================================
+async function loadData() {
+  if (USE_LOCAL_DATA) {
+    // Load from embedded JSON (generated by Python script)
+    try {
+      const resp = await fetch('./soportes.json');
+      if (resp.ok) {
+        const data = await resp.json();
+        allSoportes = data.soportes;
+        if (data.last_update) updateTimestamp(data.last_update);
+      }
+    } catch(e) {
+      // Fallback: use sample data for demo
+      allSoportes = generateSampleData();
+    }
+  } else {
+    try {
+      const resp = await fetch(APPS_SCRIPT_URL + '?action=all');
+      const data = await resp.json();
+      allSoportes = data.soportes;
+      updateTimestamp(data.last_update);
+    } catch(e) {
+      showToast('Error cargando datos del servidor', true);
+    }
+  }
+  
+  const now = new Date().toLocaleString('es-PE', {timeZone:'America/Lima',hour12:false});
+  if (!document.getElementById('last-ts').textContent || document.getElementById('last-ts').textContent === 'Cargando...')
+    document.getElementById('last-ts').textContent = now;
+}
+
+function updateTimestamp(ts) {
+  if (!ts) return;
+  const d = new Date(ts);
+  const s = isNaN(d) ? ts : d.toLocaleString('es-PE',{timeZone:'America/Lima',hour12:false});
+  document.getElementById('last-ts').textContent = s;
+}
+
+// ============================================================
+//  FILTERS
+// ============================================================
+function populateFilters() {
+  const sel = document.getElementById('f-tramo');
+  TRAMO_ORDER.forEach(t => {
+    const o = document.createElement('option');
+    o.value = t; o.textContent = t;
+    sel.appendChild(o);
+  });
+}
+
+function applyFilters() {
+  const via = document.getElementById('f-via').value;
+  const tramo = document.getElementById('f-tramo').value;
+  const estado = document.getElementById('f-estado').value;
+  const search = document.getElementById('f-search').value.toLowerCase();
+  
+  filtered = allSoportes.filter(s => {
+    if (via && String(s.via) !== via) return false;
+    if (tramo && s.tramo !== tramo) return false;
+    if (estado === 'sin_iniciar' && s.pct > 0) return false;
+    if (estado === 'en_progreso' && (s.pct === 0 || s.pct >= 100)) return false;
+    if (estado === 'completo' && s.pct < 100) return false;
+    if (estado === 'adicional' && s.situacion !== 'Adicional') return false;
+    if (estado === 'interferencia' && s.situacion !== 'Interferencia') return false;
+    if (search && !s.id.toLowerCase().includes(search) && !s.tramo.toLowerCase().includes(search)) return false;
+    return true;
+  });
+  
+  currentPage = 1;
+  renderTable();
+  renderMap();
+}
+
+// ============================================================
+//  TABS
+// ============================================================
+function switchTab(name) {
+  currentTab = name;
+  ['map','kpi','table'].forEach(t => {
+    document.getElementById('tab-'+t).style.display = t === name ? '' : 'none';
+  });
+  document.querySelectorAll('.tab').forEach((el,i) => {
+    el.classList.toggle('active', ['map','kpi','table'][i] === name);
+  });
+  if (name === 'map') renderMap();
+}
+
+// ============================================================
+//  KPI CARDS
+// ============================================================
+function renderKPIs() {
+  const container = document.getElementById('kpi-cards');
+  container.innerHTML = '';
+  
+  // Global card
+  const total = allSoportes.length;
+  const globalPct = total > 0 ? allSoportes.reduce((s,x)=>s+x.pct,0)/total : 0;
+  container.innerHTML += kpiCard('Avance Global', globalPct.toFixed(1)+'%', 
+    total+' soportes', '#00c6ff', 100, globalPct);
+  
+  // Per actividad
+  ACTS.forEach(a => {
+    const done = allSoportes.filter(s=>s[a.key]==1).length;
+    const pct = total > 0 ? done/total*100 : 0;
+    container.innerHTML += kpiCard(a.label, pct.toFixed(1)+'%',
+      done+' / '+total+' · peso '+Math.round(a.weight*100)+'%',
+      a.color, 100, pct, Math.round(a.weight*100)+'%');
+  });
+}
+
+function kpiCard(label, value, sub, color, max, current, weight='') {
+  const pct = Math.min(100, current);
+  return `<div class="kpi-card" style="--c:${color}">
+    <div class="kpi-label">${label}</div>
+    <div class="kpi-value">${value}</div>
+    <div class="kpi-sub">${sub}</div>
+    <div class="kpi-bar"><div class="kpi-bar-fill" style="width:${pct}%"></div></div>
+    ${weight ? '<div class="kpi-weight">Peso: '+weight+'</div>' : ''}
+  </div>`;
+}
+
+// ============================================================
+//  GANTT / TRAMO BARS
+// ============================================================
+function renderGantt() {
+  const container = document.getElementById('gantt-rows');
+  container.innerHTML = '';
+  
+  TRAMO_ORDER.forEach(tramo => {
+    const sops = allSoportes.filter(s=>s.tramo===tramo);
+    if (!sops.length) return;
+    const avg = sops.reduce((s,x)=>s+x.pct,0)/sops.length;
+    const color = avg<20?'var(--red)':avg<50?'var(--yellow)':avg<80?'var(--accent)':'var(--green)';
+    const pctLabel = avg>=5 ? avg.toFixed(1)+'%' : '';
+    container.innerHTML += `
+      <div class="gantt-row" onclick="filterByTramo('${tramo}')">
+        <div class="gantt-name">${tramo}</div>
+        <div class="gantt-bar-track">
+          <div class="gantt-bar-fill" style="width:${avg}%;background:${color}">${pctLabel}</div>
+        </div>
+        <div class="gantt-pct" style="color:${color}">${avg.toFixed(1)}%</div>
+        <div class="gantt-count">${sops.length}</div>
+      </div>`;
+  });
+}
+
+function renderCrono() {
+  const container = document.getElementById('crono-rows');
+  container.innerHTML = '';
+  const today = new Date();
+  
+  CRONOGRAMA.forEach(c => {
+    const sops = allSoportes.filter(s=>s.tramo===c.tramo);
+    const realPct = sops.length > 0 ? sops.reduce((s,x)=>s+x.pct,0)/sops.length : 0;
+    
+    const ini = new Date(c.inicio);
+    const fin = new Date(c.fin);
+    const totalDays = (fin-ini)/(1000*86400);
+    const elapsedDays = Math.max(0, Math.min(totalDays, (today-ini)/(1000*86400)));
+    const planPct = totalDays > 0 ? Math.min(100, elapsedDays/totalDays*100) : 0;
+    const delta = realPct - planPct;
+    const deltaColor = delta >= 0 ? 'var(--green)' : 'var(--red)';
+    const deltaLabel = (delta>=0?'+':'')+delta.toFixed(1)+'%';
+    
+    container.innerHTML += `
+      <div style="display:grid;grid-template-columns:140px 1fr 80px 80px 80px;gap:8px;padding:7px 0;border-top:1px solid var(--border);font-size:.8rem;align-items:center">
+        <span style="font-weight:600">${c.tramo}</span>
+        <span style="color:var(--text3);font-size:.72rem">${c.inicio} → ${c.fin}</span>
+        <span style="color:var(--text2)">${planPct.toFixed(1)}%</span>
+        <span style="color:var(--accent)">${realPct.toFixed(1)}%</span>
+        <span style="color:${deltaColor};font-weight:700">${deltaLabel}</span>
+      </div>`;
+  });
+}
+
+function filterByTramo(tramo) {
+  document.getElementById('f-tramo').value = tramo;
+  applyFilters();
+  switchTab('table');
+}
+
+// ============================================================
+//  MAP / TUNNEL VISUALIZATION
+// ============================================================
+const canvas = document.getElementById('tunnel-canvas');
+const ctx = canvas.getContext('2d');
+
+function setMapMode(mode) {
+  mapMode = mode;
+  document.querySelectorAll('.map-toolbar-btn').forEach((b,i) => {
+    b.classList.toggle('active', ['progreso','actividad','tipo'][i] === mode);
+  });
+  document.getElementById('map-act-sel').style.display = mode==='actividad' ? '' : 'none';
+  renderMap();
+}
+
+function getSoporteColor(s) {
+  if (mapMode === 'tipo') {
+    return s.situacion === 'Adicional' ? '#f97316' :
+           s.situacion === 'Interferencia' ? '#ef4444' : '#60a5fa';
+  }
+  if (mapMode === 'actividad') {
+    const act = document.getElementById('map-act-sel').value;
+    if (s.situacion === 'Adicional') return '#f97316';
+    if (s.situacion === 'Interferencia') return '#ef4444';
+    return s[act] == 1 ? '#22c55e' : '#374151';
+  }
+  // progreso mode
+  if (s.situacion === 'Adicional') return '#f97316';
+  if (s.situacion === 'Interferencia') return '#ef4444';
+  if (s.pct >= 100) return '#22c55e';
+  if (s.pct >= 60)  return '#34d399';
+  if (s.pct >= 30)  return '#f59e0b';
+  if (s.pct > 0)    return '#ef4444';
+  return '#374151';
+}
+
+function renderMap() {
+  if (currentTab !== 'map') return;
+  
+  const W = canvas.offsetWidth;
+  const H = 320;
+  canvas.width = W;
+  canvas.height = H;
+  
+  const src = filtered.length > 0 ? filtered : allSoportes;
+  if (!src.length) return;
+  
+  // Sort by via then km
+  const sorted = [...src].sort((a,b) => {
+    if (a.via !== b.via) return a.via - b.via;
+    return (a.km||0) - (b.km||0);
+  });
+  
+  const via1 = sorted.filter(s=>s.via===1);
+  const via2 = sorted.filter(s=>s.via===2);
+  
+  // Canvas dimensions
+  ctx.clearRect(0,0,W,H);
+  
+  // Background - tunnel feel
+  const bgGrad = ctx.createLinearGradient(0,0,0,H);
+  bgGrad.addColorStop(0,'#050810');
+  bgGrad.addColorStop(1,'#0a0f1e');
+  ctx.fillStyle = bgGrad;
+  ctx.fillRect(0,0,W,H);
+  
+  // Tunnel arch lines
+  ctx.strokeStyle = 'rgba(30,40,70,0.8)';
+  ctx.lineWidth = 1;
+  for (let i=0;i<5;i++) {
+    ctx.beginPath();
+    ctx.arc(W/2, -50+i*30, W*0.6+i*20, 0, Math.PI);
+    ctx.stroke();
+  }
+  
+  // Calculate positions
+  const kmMin = Math.min(...src.map(s=>s.km||0).filter(k=>k>0));
+  const kmMax = Math.max(...src.map(s=>s.km||0).filter(k=>k>0));
+  const kmRange = kmMax - kmMin || 1;
+  
+  const MARGIN = 60;
+  const USABLE_W = (W - MARGIN*2) * mapScale;
+  const VIA1_Y = H * 0.32;
+  const VIA2_Y = H * 0.68;
+  const WIRE_Y1 = H * 0.18;
+  const WIRE_Y2 = H * 0.82;
+  
+  function kmToX(km) {
+    return MARGIN + ((km - kmMin) / kmRange) * USABLE_W + mapOffsetX;
+  }
+  
+  // Draw rail lines
+  ctx.strokeStyle = 'rgba(100,116,139,0.4)';
+  ctx.lineWidth = 2;
+  ctx.beginPath(); ctx.moveTo(MARGIN+mapOffsetX, VIA1_Y+20); ctx.lineTo(MARGIN+USABLE_W+mapOffsetX, VIA1_Y+20); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(MARGIN+mapOffsetX, VIA2_Y-20); ctx.lineTo(MARGIN+USABLE_W+mapOffsetX, VIA2_Y-20); ctx.stroke();
+  
+  // Draw via labels
+  ctx.fillStyle = 'rgba(148,163,184,0.6)';
+  ctx.font = 'bold 11px Segoe UI';
+  ctx.textAlign = 'left';
+  ctx.fillText('VIA 1', 4, VIA1_Y+4);
+  ctx.fillText('VIA 2', 4, VIA2_Y+4);
+  
+  // Draw tramo dividers & labels
+  const tramoKmMap = {
+    'PV11-E12': kmMin,
+    'E12-E13': 12000,
+    'E13-E14': 13000,
+    'E14-E15': 14000,
+    'E15-E16': 15000,
+    'E16-E17': 16000,
+    'E17-E18': 17000,
+    'E18-E19': 18000,
+    'E19-PV19': 19000,
+  };
+  
+  const stations = [
+    {label:'PV11', km: kmMin},
+    {label:'E12', km:12000},{label:'E13', km:13000},{label:'E14', km:14000},
+    {label:'E15', km:15000},{label:'E16', km:16000},{label:'E17', km:17000},
+    {label:'E18', km:18000},{label:'E19', km:19000},{label:'PV19', km:19142}
+  ];
+  
+  stations.forEach(st => {
+    const x = kmToX(st.km);
+    if (x < 0 || x > W) return;
+    ctx.strokeStyle = 'rgba(99,102,241,0.3)';
+    ctx.lineWidth = 1;
+    ctx.setLineDash([4,4]);
+    ctx.beginPath(); ctx.moveTo(x,20); ctx.lineTo(x,H-20); ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.fillStyle = 'rgba(129,140,248,0.9)';
+    ctx.font = 'bold 10px Segoe UI';
+    ctx.textAlign = 'center';
+    ctx.fillText(st.label, x, 14);
+  });
+  
+  // Draw catenary wire (simulated wavy line)
+  function drawWire(viaY, wireY) {
+    ctx.strokeStyle = 'rgba(0,198,255,0.15)';
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(MARGIN+mapOffsetX, wireY);
+    for (let x=MARGIN+mapOffsetX; x<MARGIN+USABLE_W+mapOffsetX; x+=6) {
+      const wave = Math.sin((x-mapOffsetX)*0.04)*3;
+      ctx.lineTo(x, wireY + wave);
+    }
+    ctx.stroke();
+  }
+  drawWire(VIA1_Y, WIRE_Y1);
+  drawWire(VIA2_Y, WIRE_Y2);
+  
+  // Draw soportes
+  const soporteRadius = Math.max(2.5, Math.min(5, USABLE_W / (src.length/2) * 0.3));
+  
+  function drawSoportes(list, viaY, wireY) {
+    list.forEach(s => {
+      if (!s.km) return;
+      const x = kmToX(s.km);
+      if (x < 0 || x > W) return;
+      
+      const color = getSoporteColor(s);
+      
+      // Support bracket line
+      ctx.strokeStyle = color;
+      ctx.lineWidth = 1;
+      ctx.globalAlpha = 0.7;
+      ctx.beginPath();
+      ctx.moveTo(x, wireY);
+      ctx.lineTo(x, viaY > H/2 ? viaY - 8 : viaY + 8);
+      ctx.stroke();
+      
+      // Mensula (horizontal arm at wire)
+      ctx.beginPath();
+      ctx.moveTo(x-4, wireY);
+      ctx.lineTo(x+4, wireY);
+      ctx.stroke();
+      
+      // Soporte circle
+      ctx.globalAlpha = 1;
+      ctx.fillStyle = color;
+      ctx.beginPath();
+      ctx.arc(x, viaY > H/2 ? viaY - 10 : viaY + 10, soporteRadius, 0, Math.PI*2);
+      ctx.fill();
+      
+      // Glow for done soportes
+      if (s.pct >= 100) {
+        ctx.shadowColor = color;
+        ctx.shadowBlur = 6;
+        ctx.beginPath();
+        ctx.arc(x, viaY > H/2 ? viaY - 10 : viaY + 10, soporteRadius, 0, Math.PI*2);
+        ctx.fill();
+        ctx.shadowBlur = 0;
+      }
+      
+      // Special badge
+      if (s.situacion === 'Adicional') {
+        ctx.fillStyle = '#f97316';
+        ctx.font = 'bold 7px Segoe UI';
+        ctx.textAlign = 'center';
+        ctx.fillText('+', x, viaY > H/2 ? viaY-9 : viaY+11);
+      }
+    });
+  }
+  
+  drawSoportes(via1, VIA1_Y, WIRE_Y1);
+  drawSoportes(via2, VIA2_Y, WIRE_Y2);
+  
+  // Legend
+  updateMapLegend();
+}
+
+function updateMapLegend() {
+  const leg = document.getElementById('map-legend');
+  if (mapMode === 'tipo') {
+    leg.innerHTML = legend([
+      {color:'#60a5fa',label:'Normal'},
+      {color:'#f97316',label:'Adicional'},
+      {color:'#ef4444',label:'Interferencia'},
+    ]);
+  } else if (mapMode === 'actividad') {
+    leg.innerHTML = legend([
+      {color:'#22c55e',label:'Realizado'},
+      {color:'#374151',label:'Pendiente'},
+      {color:'#f97316',label:'Adicional'},
+      {color:'#ef4444',label:'Interferencia'},
+    ]);
+  } else {
+    leg.innerHTML = legend([
+      {color:'#22c55e',label:'100%'},
+      {color:'#34d399',label:'≥60%'},
+      {color:'#f59e0b',label:'≥30%'},
+      {color:'#ef4444',label:'>0%'},
+      {color:'#374151',label:'Sin iniciar'},
+      {color:'#f97316',label:'Adicional'},
+    ]);
+  }
+}
+
+function legend(items) {
+  return items.map(i=>`<div class="legend-item"><div class="legend-dot" style="background:${i.color}"></div>${i.label}</div>`).join('');
+}
+
+// Map zoom & pan
+function zoomIn()  { mapScale = Math.min(8, mapScale*1.5); renderMap(); }
+function zoomOut() { mapScale = Math.max(1, mapScale/1.5); if(mapScale<=1) mapOffsetX=0; renderMap(); }
+function resetZoom(){ mapScale=1; mapOffsetX=0; mapOffsetY=0; renderMap(); }
+
+function setupMapEvents() {
+  canvas.addEventListener('wheel', e => {
+    e.preventDefault();
+    if (e.deltaY < 0) zoomIn(); else zoomOut();
+  }, {passive:false});
+  
+  canvas.addEventListener('mousedown', e => {
+    isDragging = true;
+    dragStart = {x:e.clientX - mapOffsetX, y:e.clientY};
+    canvas.style.cursor = 'grabbing';
+  });
+  canvas.addEventListener('mousemove', e => {
+    if (!isDragging) return;
+    mapOffsetX = e.clientX - dragStart.x;
+    mapOffsetX = Math.min(0, Math.max(-(canvas.width*(mapScale-1)), mapOffsetX));
+    renderMap();
+  });
+  canvas.addEventListener('mouseup', e => {
+    isDragging = false;
+    canvas.style.cursor = 'grab';
+  });
+  canvas.addEventListener('mouseleave', () => { isDragging = false; });
+  
+  // Touch
+  let lastTouch = null;
+  canvas.addEventListener('touchstart', e => {
+    if (e.touches.length === 1) {
+      lastTouch = e.touches[0];
+    }
+  });
+  canvas.addEventListener('touchmove', e => {
+    e.preventDefault();
+    if (e.touches.length === 1 && lastTouch) {
+      const dx = e.touches[0].clientX - lastTouch.clientX;
+      mapOffsetX += dx;
+      mapOffsetX = Math.min(0, Math.max(-(canvas.width*(mapScale-1)), mapOffsetX));
+      lastTouch = e.touches[0];
+      renderMap();
+    }
+  }, {passive:false});
+  
+  // Click to open soporte detail
+  canvas.addEventListener('click', e => {
+    if (Math.abs(e.clientX - (dragStart.x + mapOffsetX)) > 5) return; // was drag
+    const rect = canvas.getBoundingClientRect();
+    const cx = e.clientX - rect.left;
+    const cy = e.clientY - rect.top;
+    
+    const W = canvas.width, H = canvas.height;
+    const src = filtered.length > 0 ? filtered : allSoportes;
+    const kmMin = Math.min(...src.map(s=>s.km||0).filter(k=>k>0));
+    const kmMax = Math.max(...src.map(s=>s.km||0).filter(k=>k>0));
+    const kmRange = kmMax - kmMin || 1;
+    const MARGIN = 60;
+    const USABLE_W = (W - MARGIN*2) * mapScale;
+    const VIA1_Y = H * 0.32;
+    const VIA2_Y = H * 0.68;
+    
+    function kmToX(km) {
+      return MARGIN + ((km - kmMin) / kmRange) * USABLE_W + mapOffsetX;
+    }
+    
+    let closest = null, minDist = 12;
+    src.forEach(s => {
+      if (!s.km) return;
+      const x = kmToX(s.km);
+      const y = s.via===1 ? VIA1_Y + 10 : VIA2_Y - 10;
+      const dist = Math.sqrt((cx-x)**2 + (cy-y)**2);
+      if (dist < minDist) { minDist=dist; closest=s; }
+    });
+    
+    if (closest) openModal(closest.id, closest.via);
+  });
+  
+  window.addEventListener('resize', () => renderMap());
+}
+
+// ============================================================
+//  TABLE
+// ============================================================
+function renderTable() {
+  const tbody = document.getElementById('table-body');
+  const total = filtered.length;
+  document.getElementById('table-count').textContent = total + ' soportes';
+  
+  const start = (currentPage-1)*PAGE_SIZE;
+  const page = filtered.slice(start, start+PAGE_SIZE);
+  
+  tbody.innerHTML = '';
+  page.forEach(s => {
+    const pctClass = s.pct===0?'pct-0':s.pct<30?'pct-low':s.pct<70?'pct-mid':'pct-high';
+    const rowClass = s.situacion==='Adicional'?'row-adicional':s.situacion==='Interferencia'?'row-interferencia':s.pct>=100?'row-done':'';
+    const dateStr = s.fecha_update ? new Date(s.fecha_update).toLocaleDateString('es-PE') : '';
+    
+    const chks = ACTS.map(a => `
+      <td class="chk-wrap">
+        <div class="chk ${s[a.key]==1?'done':''}" 
+             onclick="toggleAct('${s.id}',${s.via},'${a.key}',this)"
+             title="${a.label}"></div>
+      </td>`).join('');
+    
+    tbody.innerHTML += `
+      <tr class="${rowClass}" data-id="${s.id}" data-via="${s.via}">
+        <td><input type="checkbox" class="row-sel" data-id="${s.id}" data-via="${s.via}"></td>
+        <td class="td-id">${s.id}${s.situacion!=='Normal'?`<span class="badge badge-${s.situacion.toLowerCase()}">${s.situacion}</span>`:''}</td>
+        <td>${s.via}</td>
+        <td style="font-size:.72rem">${s.tramo}</td>
+        <td class="td-km">${s.km ? s.km.toFixed(0) : '-'}</td>
+        <td style="font-size:.68rem;color:var(--text3)">${(s.tipo||'').substring(0,12)}</td>
+        ${chks}
+        <td class="pct-cell ${pctClass}">${s.pct}%</td>
+        <td class="comment-cell"><input class="comment-input" type="text" value="${s.comentario||''}" 
+            placeholder="Agregar nota..." 
+            onblur="saveComment('${s.id}',${s.via},this.value)"
+            title="${s.solicitud||''}"></td>
+        <td style="font-size:.68rem;color:var(--text3)">${dateStr}</td>
+        <td><button class="btn btn-secondary" style="padding:3px 8px;font-size:.7rem" onclick="openModal('${s.id}',${s.via})">✎</button></td>
+      </tr>`;
+  });
+  
+  renderPagination(total);
+}
+
+function renderPagination(total) {
+  const pages = Math.ceil(total/PAGE_SIZE);
+  document.getElementById('page-info').textContent = 
+    `${(currentPage-1)*PAGE_SIZE+1}–${Math.min(currentPage*PAGE_SIZE,total)} de ${total}`;
+  
+  const btns = document.getElementById('page-btns');
+  btns.innerHTML = '';
+  let start = Math.max(1, currentPage-2);
+  let end = Math.min(pages, start+4);
+  for (let i=start;i<=end;i++) {
+    const b = document.createElement('button');
+    b.className = 'page-btn' + (i===currentPage?' active':'');
+    b.textContent = i;
+    b.onclick = () => { currentPage=i; renderTable(); };
+    btns.appendChild(b);
+  }
+}
+
+function changePage(dir) {
+  const pages = Math.ceil(filtered.length/PAGE_SIZE);
+  currentPage = Math.max(1, Math.min(pages, currentPage+dir));
+  renderTable();
+}
+
+function toggleAll(cb) {
+  document.querySelectorAll('.row-sel').forEach(c => c.checked = cb.checked);
+}
+
+// ============================================================
+//  INLINE ACTIONS
+// ============================================================
+async function toggleAct(id, via, act, el) {
+  // Find soporte in memory
+  const s = allSoportes.find(x=>x.id===id && x.via==via);
+  if (!s) return;
+  
+  const newVal = s[act]==1 ? 0 : 1;
+  s[act] = newVal;
+  
+  // If marking fijacion, also mark perforacion
+  if (act === 'fijacion' && newVal === 1) s['perforacion'] = 1;
+  
+  // Recompute pct
+  s.pct = Math.round(ACTS.reduce((sum,a)=>sum + a.weight*(s[a.key]||0),0)*1000)/10;
+  s.fecha_update = new Date().toISOString();
+  s.actualizado_por = document.getElementById('f-user').value || 'web';
+  
+  el.classList.toggle('done', newVal===1);
+  
+  // Update pct in row
+  const row = el.closest('tr');
+  if (row) {
+    const pctCell = row.querySelector('.pct-cell');
+    if (pctCell) {
+      pctCell.textContent = s.pct+'%';
+      pctCell.className = 'pct-cell '+(s.pct===0?'pct-0':s.pct<30?'pct-low':s.pct<70?'pct-mid':'pct-high');
+    }
+  }
+  
+  await saveToServer(s, {[act]: newVal});
+  updateTimestamp(s.fecha_update);
+  renderKPIs();
+}
+
+async function saveComment(id, via, value) {
+  const s = allSoportes.find(x=>x.id===id && x.via==via);
+  if (!s || s.comentario === value) return;
+  s.comentario = value;
+  s.fecha_update = new Date().toISOString();
+  s.actualizado_por = document.getElementById('f-user').value || 'web';
+  await saveToServer(s, {comentario: value});
+}
+
+// ============================================================
+//  MODAL
+// ============================================================
+function openModal(id, via) {
+  const s = allSoportes.find(x=>x.id===id && x.via==via);
+  if (!s) return;
+  modalSoporte = s;
+  modalVia = via;
+  
+  document.getElementById('modal-title').innerHTML = 
+    `Soporte ${s.id} <span style="font-size:.75rem;color:var(--text3)">Via ${s.via}</span>` +
+    (s.situacion!=='Normal'?`<span class="modal-badge badge-${s.situacion.toLowerCase()}">${s.situacion}</span>`:'');
+  
+  document.getElementById('modal-meta').innerHTML = 
+    `Tramo: <b>${s.tramo}</b> · Km: <b>${s.km||'?'}</b> · Tipo: <b>${s.tipo||'?'}</b>` +
+    (s.solicitud?`<br><span style="color:var(--orange);font-size:.72rem">⚠ ${s.solicitud}</span>`:'');
+  
+  const actsContainer = document.getElementById('modal-acts');
+  actsContainer.innerHTML = '';
+  ACTS.forEach(a => {
+    const done = s[a.key]==1;
+    actsContainer.innerHTML += `
+      <div class="act-item ${done?'done':''}" onclick="toggleModalAct('${a.key}',this)" data-act="${a.key}">
+        <div class="act-icon" style="background:${done?a.color:'transparent'};border-color:${a.color};color:${a.color}">
+          ${done?'':''}
+        </div>
+        <div class="act-text">
+          <div class="act-name">${a.label}</div>
+          <div class="act-weight">Peso: ${Math.round(a.weight*100)}%</div>
+        </div>
+      </div>`;
+  });
+  
+  document.getElementById('modal-comment').value = s.comentario || '';
+  document.getElementById('modal').classList.add('open');
+}
+
+function toggleModalAct(act, el) {
+  el.classList.toggle('done');
+  const icon = el.querySelector('.act-icon');
+  const a = ACTS.find(x=>x.key===act);
+  if (el.classList.contains('done')) {
+    icon.style.background = a.color;
+    icon.style.borderColor = a.color;
+    icon.innerHTML = '';
+  } else {
+    icon.style.background = 'transparent';
+    icon.style.borderColor = a.color;
+    icon.innerHTML = '';
+  }
+  // Auto-check perforacion if fijacion is checked
+  if (act === 'fijacion' && el.classList.contains('done')) {
+    const perfEl = document.querySelector('[data-act="perforacion"]');
+    if (perfEl && !perfEl.classList.contains('done')) {
+      toggleModalAct('perforacion', perfEl);
+    }
+  }
+}
+
+function closeModal() {
+  document.getElementById('modal').classList.remove('open');
+  modalSoporte = null;
+}
+
+async function saveModal() {
+  const s = modalSoporte;
+  if (!s) return;
+  
+  const updates = {};
+  ACTS.forEach(a => {
+    const el = document.querySelector(`[data-act="${a.key}"]`);
+    if (el) {
+      const newVal = el.classList.contains('done') ? 1 : 0;
+      if (s[a.key] !== newVal) updates[a.key] = newVal;
+      s[a.key] = newVal;
+    }
+  });
+  
+  const comment = document.getElementById('modal-comment').value;
+  if (comment !== s.comentario) {
+    updates.comentario = comment;
+    s.comentario = comment;
+  }
+  
+  s.pct = Math.round(ACTS.reduce((sum,a)=>sum+a.weight*(s[a.key]||0),0)*1000)/10;
+  s.fecha_update = new Date().toISOString();
+  s.actualizado_por = document.getElementById('f-user').value || 'web';
+  
+  await saveToServer(s, updates);
+  closeModal();
+  renderTable();
+  renderKPIs();
+  renderGantt();
+  renderMap();
+  updateTimestamp(s.fecha_update);
+  showToast('✓ Guardado correctamente');
+}
+
+// ============================================================
+//  SERVER SYNC
+// ============================================================
+async function saveToServer(s, changes) {
+  if (USE_LOCAL_DATA) {
+    // Save to localStorage as backup
+    localStorage.setItem('cat_'+s.id+'_'+s.via, JSON.stringify(s));
+    showToast('✓ '+s.id+' actualizado');
+    return;
+  }
+  
+  try {
+    const body = {
+      action: 'update_soporte',
+      id: s.id,
+      via: s.via,
+      actualizado_por: document.getElementById('f-user').value || 'web',
+      ...changes
+    };
+    const resp = await fetch(APPS_SCRIPT_URL, {
+      method: 'POST',
+      body: JSON.stringify(body)
+    });
+    const result = await resp.json();
+    if (result.ok) showToast('✓ '+s.id+' sincronizado');
+    else showToast('Error: '+result.error, true);
+  } catch(e) {
+    showToast('Sin conexión - guardado local', true);
+    localStorage.setItem('cat_'+s.id+'_'+s.via, JSON.stringify(s));
+  }
+}
+
+// ============================================================
+//  BULK MARK
+// ============================================================
+function bulkMarkModal() {
+  const selected = [...document.querySelectorAll('.row-sel:checked')];
+  if (!selected.length) { showToast('Selecciona soportes primero', true); return; }
+  // Simple prompt - mark all selected with a specific activity
+  const act = prompt('Actividad a marcar (perforacion/fijacion/soporte/mensula/aislador/perfil/hilo):');
+  if (!ACTS.find(a=>a.key===act)) return;
+  selected.forEach(cb => {
+    const s = allSoportes.find(x=>x.id===cb.dataset.id && x.via==cb.dataset.via);
+    if (s) {
+      s[act] = 1;
+      s.pct = Math.round(ACTS.reduce((acc,a)=>acc+a.weight*(s[a.key]||0),0)*1000)/10;
+      saveToServer(s, {[act]:1});
+    }
+  });
+  renderTable();
+  renderKPIs();
+  showToast(`✓ ${selected.length} soportes actualizados`);
+}
+
+// ============================================================
+//  EXPORT
+// ============================================================
+function exportCSV() {
+  const fields = ['id','via','tramo','km','tipo','situacion',...ACTS.map(a=>a.key),'pct','comentario','fecha_update','actualizado_por'];
+  const header = fields.join(',');
+  const rows = filtered.map(s => fields.map(f => {
+    const v = s[f]===null||s[f]===undefined?'':s[f];
+    return typeof v==='string' && v.includes(',') ? `"${v}"` : v;
+  }).join(','));
+  const csv = [header,...rows].join('\n');
+  const blob = new Blob(['\uFEFF'+csv], {type:'text/csv;charset=utf-8'});
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'catenaria_'+new Date().toISOString().slice(0,10)+'.csv';
+  a.click();
+}
+
+// ============================================================
+//  TOAST
+// ============================================================
+function showToast(msg, error=false) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.className = 'toast show' + (error?' error':'');
+  setTimeout(()=>t.className='toast',2800);
+}
+
+// ============================================================
+//  SAMPLE DATA (for demo without Apps Script)
+// ============================================================
+function generateSampleData() {
+  const s = [];
+  // Generate minimal demo data
+  for (let i=0;i<50;i++) {
+    s.push({id:'1.11.'+i, via:1, tramo:'PV11-E12', seg:'11', km:11000+i*10,
+      tipo:'S-1330/α_54', situacion:'Normal', tunel:'Tunel 6', solicitud:'',
+      perforacion:i<20?1:0, fijacion:i<18?1:0, soporte:i<15?1:0,
+      mensula:i<12?1:0, aislador:i<10?1:0, perfil:i<5?1:0, hilo:0,
+      pct:0, comentario:'', fecha_update:'', actualizado_por:''});
+  }
+  s.forEach(x => {
+    x.pct = Math.round(ACTS.reduce((sum,a)=>sum+a.weight*(x[a.key]||0),0)*1000)/10;
+  });
+  return s;
+}
+
+// Load persisted data from localStorage if available
+function applyLocalStorage() {
+  allSoportes.forEach(s => {
+    const saved = localStorage.getItem('cat_'+s.id+'_'+s.via);
+    if (saved) {
+      try {
+        const sv = JSON.parse(saved);
+        ACTS.forEach(a => { if (sv[a.key]!==undefined) s[a.key]=sv[a.key]; });
+        if (sv.comentario!==undefined) s.comentario=sv.comentario;
+        if (sv.pct!==undefined) s.pct=sv.pct;
+        if (sv.fecha_update) s.fecha_update=sv.fecha_update;
+      } catch(e) {}
+    }
+  });
+}
+
+// Close modal on bg click
+document.getElementById('modal').addEventListener('click', e => {
+  if (e.target === document.getElementById('modal')) closeModal();
+});
+</script>
+</body>
+</html>
