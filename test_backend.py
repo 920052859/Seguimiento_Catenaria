@@ -40,6 +40,8 @@ def test_backend_formats_update_date_for_lima():
     assert "function formatLimaDateTime" in CODE
     assert "'dd/MM/yyyy HH:mm'" in CODE
     assert "formatLimaDateTime(now)" in CODE
+    assert "function normalizeExistingUpdateDates" in CODE
+    assert "normalizeExistingUpdateDates" in CODE
 
 
 def test_backend_tracks_binary_activity_delta():

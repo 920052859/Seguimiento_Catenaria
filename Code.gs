@@ -65,6 +65,25 @@ function ensureOperationalColumns(ws) {
   });
 }
 
+function normalizeExistingUpdateDates(ws) {
+  if (ws.getLastRow() < 2) return;
+  const headers = ws.getRange(1, 1, 1, ws.getLastColumn()).getValues()[0]
+    .map(h => String(h).trim());
+  const column = headers.indexOf('fecha_update') + 1;
+  if (!column) return;
+  const range = ws.getRange(2, column, ws.getLastRow() - 1, 1);
+  const normalized = range.getValues().map(row => {
+    const value = row[0];
+    if (!value) return [''];
+    if (value instanceof Date) return [formatLimaDateTime(value)];
+    const text = String(value).trim();
+    if (/^\d{2}\/\d{2}\/\d{4} \d{2}:\d{2}$/.test(text)) return [text];
+    const parsed = new Date(text);
+    return [isNaN(parsed.getTime()) ? text : formatLimaDateTime(parsed)];
+  });
+  range.setNumberFormat('@').setValues(normalized);
+}
+
 function headerIndex(headers) {
   const idx = {};
   headers.forEach((h, i) => { idx[String(h).trim()] = i; });
@@ -81,7 +100,8 @@ function configurar() {
   if (!active) {
     throw new Error('Este proyecto no esta vinculado a un Sheet. Abre el Google Sheet > Extensiones > Apps Script y pega el codigo alli.');
   }
-  getSheetOrThrow(active);
+  const ws = getSheetOrThrow(active);
+  normalizeExistingUpdateDates(ws);
   ensureHistorySheet(active);
   ensureDailyLogSheet(active);
   PropertiesService.getScriptProperties().setProperty('SHEET_ID', active.getId());
