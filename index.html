@@ -561,7 +561,9 @@ tbody td{padding:6px 10px;vertical-align:middle;white-space:nowrap}
         <canvas id="spi-canvas" height="240" style="width:100%;background:#0a0f1e;border-radius:8px;display:block;margin-top:8px"></canvas>
         <div id="spi-tooltip" style="display:none;position:absolute;background:rgba(14,22,40,.95);border:1px solid var(--accent);border-radius:7px;padding:8px 12px;font-size:.78rem;color:var(--text);pointer-events:none;z-index:300;white-space:nowrap;box-shadow:0 4px 16px rgba(0,0,0,.5)"></div>
         <div style="font-size:.72rem;color:var(--text3);margin-top:6px;text-align:center">
-          Curva S contractual vs avance real acumulado desde inicio hasta fin previsto. Los puntos reales se obtienen de los snapshots semanales guardados.
+          Curva S contractual vs avance real acumulado. Los puntos reales se obtienen de los snapshots semanales.
+          Para agregar el avance de hoy al gráfico:
+          <button class="btn btn-primary" style="margin-left:8px;padding:4px 10px;font-size:.7rem" onclick="saveSnapshot()">💾 Guardar corte SPI ahora</button>
         </div>
       </div>
     </div>
@@ -817,11 +819,13 @@ let alignmentProfile = [];
 const EDITOR_PASSWORD = 'admin123';
 let editorUnlocked = sessionStorage.getItem('catenaria_editor') === '1';
 
-// -------- VEHICLES --------
+// -------- VEHICLES (iconos fieles a los vehiculos reales) --------
+// Sky 1 y Sky 2: plataforma elevadora tipo boom (naranja, HAULKE)
+// Bivial: camion grua bivi sobre rieles (amarillo, Geismar Picker Wizard)
 const VEHICLES = {
-  'Sky 1':  {color:'#60a5fa', icon:'🔧'},
-  'Sky 2':  {color:'#a855f7', icon:'🔧'},
-  'Bivial': {color:'#22d3ee', icon:'🚂'},
+  'Sky 1':  {color:'#f97316', icon:'🟠', desc:'Plataforma elevadora boom'},
+  'Sky 2':  {color:'#fb923c', icon:'🟠', desc:'Plataforma elevadora boom'},
+  'Bivial': {color:'#eab308', icon:'🚚', desc:'Camión grúa bivial (rieles)'},
 };
 let pendingVehicleCallback = null; // fn to call after vehicle confirmed
 let currentVehicle = null;
@@ -878,6 +882,8 @@ document.addEventListener('DOMContentLoaded', async () => {
     if (badge) badge.style.display = '';
   }
   renderMapKpiStrip();
+  // Load persistent vehicle positions from Sheets (non-blocking)
+  loadVehiclePositions();
 });
 
 async function loadAlignmentProfile() {
@@ -1555,12 +1561,49 @@ function legend(items) {
   return items.map(i=>`<div class="legend-item"><div class="legend-dot" style="background:${i.color}"></div>${i.label}</div>`).join('');
 }
 
-// Vehicle positions state: {name: {soporte_id, soporte_via, km}}
+// Vehicle positions state: loaded from Sheets + local updates
 const vehiclePositions = {};
 
 function setVehiclePosition(vehicleName, soporte) {
   if (!vehicleName || !soporte) return;
-  vehiclePositions[vehicleName] = {id:soporte.id, via:soporte.via, km:Number(soporte.km)||0, ts:new Date().toISOString()};
+  vehiclePositions[vehicleName] = {
+    id: soporte.id, via: soporte.via,
+    km: Number(soporte.km) || 0,
+    ts: formatDateTimeLima(new Date()),
+    tramo: soporte.tramo || ''
+  };
+  // Persist to Sheets async (fire and forget)
+  if (!USE_LOCAL_DATA && !usingLocalFallback && APPS_SCRIPT_URL) {
+    fetch(APPS_SCRIPT_URL, {method:'POST', body: JSON.stringify({
+      action: 'save_vehicle_position',
+      vehiculo: vehicleName,
+      soporte_id: soporte.id,
+      via: soporte.via,
+      km: Number(soporte.km) || 0,
+      fecha_update: vehiclePositions[vehicleName].ts,
+      usuario: document.getElementById('f-user')?.value || 'web'
+    })}).catch(()=>{});
+  }
+}
+
+async function loadVehiclePositions() {
+  if (USE_LOCAL_DATA || usingLocalFallback || !APPS_SCRIPT_URL) return;
+  try {
+    const r = await fetch(`${APPS_SCRIPT_URL}?action=vehicle_positions`);
+    const d = await r.json();
+    if (d.ok && d.positions) {
+      Object.entries(d.positions).forEach(([name, pos]) => {
+        if (!vehiclePositions[name]) {
+          vehiclePositions[name] = {
+            id: pos.soporte_id, via: pos.via,
+            km: Number(pos.km) || 0,
+            ts: pos.fecha_update, tramo: ''
+          };
+        }
+      });
+      drawVehiclePositions();
+    }
+  } catch(_) {}
 }
 
 function drawVehiclePositions() {
@@ -1587,16 +1630,26 @@ function drawVehiclePositions() {
     ctx.fillStyle = cfg.color;
     ctx.globalAlpha = 0.9;
     ctx.beginPath();
-    ctx.roundRect(x-18, y-8, 36, 16, 4);
+    ctx.roundRect(x-20, y-8, 40, 16, 4);
     ctx.fill();
+    // Icono diferenciado: Sky=plataforma, Bivial=camion
+    const icon = name.startsWith('Sky') ? '⬆ SKY' : '⬅ BV';
     ctx.fillStyle = '#0a0f1e';
     ctx.font = 'bold 7px Segoe UI';
     ctx.textAlign = 'center';
-    ctx.fillText(name, x, y+2);
+    ctx.fillText(icon.split(' ')[1] || name.slice(0,3), x, y+2);
+    // Timestamp pequeño
+    if (pos.ts) {
+      ctx.globalAlpha = 0.6;
+      ctx.font = '6px Segoe UI';
+      ctx.fillStyle = '#fff';
+      ctx.fillText(String(pos.ts).slice(-5), x, y+10);
+      ctx.globalAlpha = 1;
+    }
     // Arrow down
     ctx.fillStyle = cfg.color;
     ctx.beginPath();
-    ctx.moveTo(x-4, y+8); ctx.lineTo(x+4, y+8); ctx.lineTo(x, y+14);
+    ctx.moveTo(x-4, y+8); ctx.lineTo(x+4, y+8); ctx.lineTo(x, y+15);
     ctx.closePath(); ctx.fill();
     ctx.restore();
   });
@@ -2000,18 +2053,23 @@ function findMapSoporteAt(clientX, clientY, radius=16) {
 function showMapTooltip(s, clientX, clientY) {
   const tt = document.getElementById('map-tooltip');
   if (!s) { tt.style.display='none'; return; }
-  document.getElementById('tt-id').textContent = `${s.id} · Vía ${s.via}`;
-  document.getElementById('tt-km').textContent = s.km ? Number(s.km).toFixed(2) : '-';
+  const pkStr = s.pk ? ` · PK ${s.pk}` : (s.km ? ` · PK ${Number(s.km).toFixed(3)}` : '');
+  document.getElementById('tt-id').textContent = `${s.id} · Vía ${s.via}${pkStr}`;
+  document.getElementById('tt-km').textContent = s.km ? Number(s.km).toFixed(3) : '-';
   document.getElementById('tt-tramo').textContent = s.tramo || '-';
   document.getElementById('tt-tipo').textContent = s.tipo || '-';
   document.getElementById('tt-sit').textContent = s.situacion || 'Normal';
   document.getElementById('tt-pct').textContent = `${s.pct}%`;
+  // Última actualización
+  const updated = s.fecha_update ? `<div class="tt-row" style="margin-top:4px"><span>Actualizado</span><b style="color:var(--text2)">${s.fecha_update}</b></div>` : '';
+  // Vehículo si está registrado
+  const veh = s.vehiculo ? `<div class="tt-row"><span>Vehículo</span><b style="color:var(--yellow)">${s.vehiculo}</b></div>` : '';
   document.getElementById('tt-acts').innerHTML = ACTS.map(a =>
     `<span class="tt-act ${s[a.key]==1?'ok':'no'}">${s[a.key]==1?'✓':'○'} ${a.label}</span>`
-  ).join('');
+  ).join('') + updated + veh;
   tt.style.display='block';
-  const left = Math.min(window.innerWidth-225, clientX+14);
-  const top = Math.min(window.innerHeight-220, clientY+14);
+  const left = Math.min(window.innerWidth-245, clientX+14);
+  const top = Math.min(window.innerHeight-240, clientY+14);
   tt.style.left=left+'px'; tt.style.top=top+'px';
 }
 
@@ -2413,7 +2471,10 @@ async function saveModal() {
 
 async function saveModalWithVehicle() {
   if (isViewerMode) { showToast('Modo visor: edición deshabilitada', true); return; }
+  if (saveModalWithVehicle._saving) return;          // anti-double-fire guard
+  saveModalWithVehicle._saving = true;
   openVehicleModal(async vehicle => {
+    saveModalWithVehicle._saving = false;
     const s = modalSoporte;
     if (!s) return;
     const updates = {};

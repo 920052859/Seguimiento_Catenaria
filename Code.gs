@@ -10,6 +10,7 @@ const SHEET_ID = '1wzNnsSueQ1yXRlWBI8qd-xWiGLyo1uf8rSDXXSeXb2s'; // Respaldo: Go
 const SHEET_NAME = 'Soportes';
 const LOG_SHEET = 'Log';
 const DAILY_LOG_SHEET = 'Log_Diario';
+const VEHICLE_SHEET    = 'Vehiculos';
 const HISTORY_SHEET = 'Historico';
 const ACTIVITIES = ['perforacion','fijacion','soporte','mensula','aislador','perfil','hilo'];
 const WEIGHTS = {
@@ -131,6 +132,7 @@ function doGet(e) {
     else if (action === 'history') result = getHistory();
     else if (action === 'daily_report') result = getDailyReport(e.parameter.date || '');
     else if (action === 'health') result = {ok:true, message:probarConexion()};
+    else if (action === 'vehicle_positions') result = getVehiclePositions();
     else result = {ok:false, error:'Accion no reconocida: ' + action};
     return jsonResponse(result);
   } catch (err) {
@@ -145,6 +147,7 @@ function doPost(e) {
     if (body.action === 'update_soporte') result = updateSoporte(body);
     else if (body.action === 'bulk_update') result = bulkUpdate(body.updates || []);
     else if (body.action === 'save_snapshot') result = saveHistorySnapshot(body);
+    else if (body.action === 'save_vehicle_position') result = saveVehiclePosition(body);
     else result = {ok:false, error:'Accion no reconocida'};
     return jsonResponse(result);
   } catch (err) {
@@ -441,6 +444,53 @@ function getDailyReport(requestedDate) {
     advance_7d_pct:calculatePeriodProgress(periodEvents, totalSupports),
     total_soportes:totalSupports
   };
+}
+
+// ============================================================
+// POSICIONES DE VEHICULOS FERROVIARIOS (hoja Vehiculos)
+// ============================================================
+function ensureVehicleSheet(ss) {
+  let ws = ss.getSheetByName(VEHICLE_SHEET);
+  if (!ws) ws = ss.insertSheet(VEHICLE_SHEET);
+  if (ws.getLastRow() === 0) {
+    ws.getRange(1,1,1,6).setValues([['vehiculo','soporte_id','via','km','fecha_update','usuario']]);
+    ws.setFrozenRows(1);
+  }
+  return ws;
+}
+
+function saveVehiclePosition(body) {
+  const ss = getSpreadsheet();
+  const ws = ensureVehicleSheet(ss);
+  const vehiculo = String(body.vehiculo || '').trim();
+  if (!vehiculo) return {ok:false, error:'vehiculo requerido'};
+  const data = ws.getDataRange().getValues();
+  let targetRow = ws.getLastRow() + 1;
+  for (let i=1; i<data.length; i++) {
+    if (String(data[i][0]).trim() === vehiculo) { targetRow = i + 1; break; }
+  }
+  ws.getRange(targetRow, 1, 1, 6).setValues([[
+    vehiculo, body.soporte_id || '', body.via || '',
+    body.km || '', body.fecha_update || formatLimaDateTime(new Date()),
+    body.usuario || 'web'
+  ]]);
+  SpreadsheetApp.flush();
+  return {ok:true, vehiculo:vehiculo};
+}
+
+function getVehiclePositions() {
+  const ss = getSpreadsheet();
+  const ws = ensureVehicleSheet(ss);
+  if (ws.getLastRow() < 2) return {ok:true, positions:{}};
+  const data = ws.getDataRange().getValues();
+  const headers = data[0].map(h => String(h).trim());
+  const positions = {};
+  data.slice(1).filter(row => row[0]).forEach(row => {
+    const pos = {};
+    headers.forEach((h,i) => { pos[h] = row[i] instanceof Date ? formatLimaDateTime(row[i]) : row[i]; });
+    positions[String(row[0]).trim()] = pos;
+  });
+  return {ok:true, positions:positions};
 }
 
 // ============================================================
