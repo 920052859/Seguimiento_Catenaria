@@ -1,6 +1,17 @@
 # Seguimiento Gráfico Catenaria – Tramo 3 y 4 | L2 Metro Lima
 ## Guía de despliegue: GitHub Pages + Google Apps Script
 
+## FUNCIONES ACTUALES
+
+- Mapa continuo Vía 1 + Vía 2, orientación Callao (izquierda) / Ate (derecha).
+- Zoom hasta 120x y dibujo progresivo de cada estructura según sus 7 actividades.
+- Alineamiento curvo obtenido de 82 puntos PK extraídos del DWG del proyecto.
+- Vista Editor: `?mode=editor` (edición, comentarios y snapshots).
+- Vista Visor: `?mode=viewer` (consulta sin controles de escritura en la interfaz).
+- Histórico semanal compartido en la hoja `Historico`, con gráfico de tendencia.
+
+> La separación Editor/Visor es funcional, no un mecanismo de autenticación. Para control de acceso real se requiere añadir autenticación al backend.
+
 ---
 
 ## ARQUITECTURA (GRATIS)
@@ -64,9 +75,17 @@
    - Clic "Implementar"
    - Autoriza los permisos cuando te pida (es tu cuenta, es seguro)
 
+   Si ya existe una implementación: "Implementar" > "Gestionar implementaciones" >
+   icono lápiz > "Nueva versión" > "Implementar". No basta con guardar Code.gs.
+
 6. Copia la URL que aparece. Se ve asi:
    https://script.google.com/macros/s/AKfyc.../exec
    Guardala para el paso 3.
+
+7. Para crear un corte automático cada viernes a las 18:00:
+   - En el selector de funciones elige `configurarSnapshotSemanal`
+   - Pulsa Ejecutar y autoriza una sola vez
+   - También puedes guardar cortes manuales desde la pestaña Histórico
 
 ---
 
@@ -152,6 +171,10 @@ Luego sube el nuevo soportes.json a GitHub.
 Una vez en GitHub Pages, el link es publico:
   https://TU_USUARIO.github.io/catenaria-t3t4/
 
+Enlaces separados:
+  https://TU_USUARIO.github.io/catenaria-t3t4/?mode=viewer
+  https://TU_USUARIO.github.io/catenaria-t3t4/?mode=editor
+
 - Cualquiera con el link puede VER el tablero
 - Cualquiera puede EDITAR (marcar actividades, comentar)
 - Todos los cambios se guardan en Google Sheets en tiempo real
@@ -168,6 +191,9 @@ Para restringir acceso: cambia el repo a Private y usa GitHub Pro
 - soportes.json     -> Datos iniciales (1869 soportes con avance migrado)
 - soportes_init.csv -> Para importar a Google Sheets
 - Code.gs           -> Backend (pegar en Apps Script)
+- alignment_profile.json -> Curvatura en planta derivada de los PK del DWG
+- test_dashboard.py -> Pruebas estructurales del frontend
+- test_backend.py   -> Pruebas estructurales del Apps Script
 - README.md         -> Esta guia
 
 ---

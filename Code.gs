@@ -9,6 +9,7 @@
 const SHEET_ID = '1wzNnsSueQ1yXRlWBI8qd-xWiGLyo1uf8rSDXXSeXb2s'; // Respaldo: Google Sheet Soportes.
 const SHEET_NAME = 'Soportes';
 const LOG_SHEET = 'Log';
+const HISTORY_SHEET = 'Historico';
 const ACTIVITIES = ['perforacion','fijacion','soporte','mensula','aislador','perfil','hilo'];
 const WEIGHTS = {
   perforacion: 0.10, fijacion: 0.20, soporte: 0.20, mensula: 0.10,
@@ -53,6 +54,7 @@ function configurar() {
     throw new Error('Este proyecto no esta vinculado a un Sheet. Abre el Google Sheet > Extensiones > Apps Script y pega el codigo alli.');
   }
   getSheetOrThrow(active);
+  ensureHistorySheet(active);
   PropertiesService.getScriptProperties().setProperty('SHEET_ID', active.getId());
   return probarConexion();
 }
@@ -77,6 +79,7 @@ function doGet(e) {
     if (action === 'all') result = getAllSoportes();
     else if (action === 'summary') result = getSummary();
     else if (action === 'tramo') result = getByTramo(e.parameter.tramo);
+    else if (action === 'history') result = getHistory();
     else if (action === 'health') result = {ok:true, message:probarConexion()};
     else result = {ok:false, error:'Accion no reconocida: ' + action};
     return jsonResponse(result);
@@ -91,6 +94,7 @@ function doPost(e) {
     let result;
     if (body.action === 'update_soporte') result = updateSoporte(body);
     else if (body.action === 'bulk_update') result = bulkUpdate(body.updates || []);
+    else if (body.action === 'save_snapshot') result = saveHistorySnapshot(body);
     else result = {ok:false, error:'Accion no reconocida'};
     return jsonResponse(result);
   } catch (err) {
@@ -253,4 +257,100 @@ function logChange(id, via, body, ts, ss) {
   if (body.comentario !== undefined && !ACTIVITIES.some(a => body[a] !== undefined)) {
     log.appendRow([ts,id,via,'comentario','',body.comentario||'',body.actualizado_por||'']);
   }
+}
+
+// ============================================================
+// HISTORICO SEMANAL COMPARTIDO
+// ============================================================
+function historyHeaders() {
+  return ['timestamp','semana','global_pct'].concat(ACTIVITIES)
+    .concat(['completados','total_soportes','usuario']);
+}
+
+function ensureHistorySheet(ss) {
+  let ws = ss.getSheetByName(HISTORY_SHEET);
+  if (!ws) ws = ss.insertSheet(HISTORY_SHEET);
+  const headers = historyHeaders();
+  if (ws.getLastRow() === 0) {
+    ws.getRange(1, 1, 1, headers.length).setValues([headers]);
+    ws.setFrozenRows(1);
+  }
+  return ws;
+}
+
+function isoWeekLabel(date) {
+  const d = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
+  const day = d.getUTCDay() || 7;
+  d.setUTCDate(d.getUTCDate() + 4 - day);
+  const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
+  const week = Math.ceil((((d - yearStart) / 86400000) + 1) / 7);
+  return d.getUTCFullYear() + '-S' + String(week).padStart(2, '0');
+}
+
+function getHistory() {
+  const ss = getSpreadsheet();
+  const ws = ensureHistorySheet(ss);
+  const data = ws.getDataRange().getValues();
+  if (data.length < 2) return {ok:true, history:[]};
+  const headers = data[0].map(String);
+  const history = data.slice(1).filter(row => row[0]).map(row => {
+    const item = {};
+    headers.forEach((header, index) => {
+      const value = row[index];
+      item[header] = value instanceof Date ? value.toISOString() : value;
+    });
+    return item;
+  });
+  return {ok:true, history:history};
+}
+
+function saveHistorySnapshot(body) {
+  const lock = LockService.getScriptLock();
+  lock.waitLock(10000);
+  try {
+    const ss = getSpreadsheet();
+    const ws = ensureHistorySheet(ss);
+    const summary = getSummary();
+    const now = new Date();
+    const timestamp = now.toISOString();
+    const semana = isoWeekLabel(now);
+    const values = [timestamp, semana, summary.global_pct];
+    ACTIVITIES.forEach(activity => values.push(summary.global_acts[activity].pct));
+    const all = getAllSoportes().soportes;
+    values.push(all.filter(s => Number(s.pct) >= 100).length);
+    values.push(summary.total_soportes);
+    values.push((body && body.actualizado_por) || 'automatico');
+
+    // Un solo corte por semana: una captura posterior reemplaza la anterior.
+    let targetRow = ws.getLastRow() + 1;
+    if (ws.getLastRow() >= 2) {
+      const weeks = ws.getRange(2, 2, ws.getLastRow() - 1, 1).getValues();
+      for (let i = 0; i < weeks.length; i++) {
+        if (String(weeks[i][0]) === semana) targetRow = i + 2;
+      }
+    }
+    ws.getRange(targetRow, 1, 1, values.length).setValues([values]);
+    SpreadsheetApp.flush();
+    return {ok:true, semana:semana, timestamp:timestamp};
+  } finally {
+    lock.releaseLock();
+  }
+}
+
+function guardarSnapshotSemanal() {
+  return saveHistorySnapshot({actualizado_por:'automatico semanal'});
+}
+
+// Ejecutar manualmente una vez. Crea un corte automatico cada viernes 18:00.
+function configurarSnapshotSemanal() {
+  ScriptApp.getProjectTriggers().forEach(trigger => {
+    if (trigger.getHandlerFunction() === 'guardarSnapshotSemanal') ScriptApp.deleteTrigger(trigger);
+  });
+  ScriptApp.newTrigger('guardarSnapshotSemanal')
+    .timeBased()
+    .everyWeeks(1)
+    .onWeekDay(ScriptApp.WeekDay.FRIDAY)
+    .atHour(18)
+    .create();
+  return 'Snapshot semanal configurado: viernes 18:00, zona horaria del proyecto.';
 }

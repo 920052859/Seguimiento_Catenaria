@@ -82,6 +82,18 @@ select:focus,input[type=text]:focus{border-color:var(--accent)}
 #tunnel-canvas{display:block;width:100%;cursor:grab;background:#0a0f1e}
 #tunnel-canvas:active{cursor:grabbing}
 .map-hint{font-size:.72rem;color:var(--text3);padding:6px 16px;text-align:center;background:var(--bg);border-top:1px solid var(--border)}
+/* Mode toggle */
+.tab-mode-toggle{padding:7px 18px;border-radius:6px;cursor:pointer;font-size:.85rem;color:#fff;border:1px solid var(--accent);background:rgba(0,198,255,.12);margin-left:auto;transition:.2s;font-weight:600}
+.tab-mode-toggle:hover{background:rgba(0,198,255,.22)}
+.tab-mode-toggle.editor-mode{background:rgba(249,115,22,.18);border-color:var(--orange);color:var(--orange)}
+/* Viewer overlay */
+body.viewer-mode .user-box,body.viewer-mode .table-toolbar .btn-primary,body.viewer-mode .modal-footer .btn-primary,body.viewer-mode .act-pill,body.viewer-mode .act-item,body.viewer-mode .comment-input,body.viewer-mode #modal-comment{pointer-events:none;opacity:.5}
+body.viewer-mode .btn-primary:not(.allow-viewer){display:none}
+.history-main{max-width:1600px;margin:auto;padding:18px 24px}
+/* History table */
+#history-body tr{border-top:1px solid var(--border)}
+#history-body td{padding:5px 8px;text-align:center;font-size:.75rem;color:var(--text2)}
+#history-body td:first-child{text-align:left;color:var(--text);font-weight:600}
 
 /* ===== TABLE VIEW ===== */
 .table-wrap{background:var(--bg2);border:1px solid var(--border);border-radius:10px;overflow:hidden}
@@ -221,6 +233,8 @@ tbody td{padding:6px 10px;vertical-align:middle;white-space:nowrap}
   <div class="tab active" onclick="switchTab('map')">🗺 Mapa Tunel</div>
   <div class="tab" onclick="switchTab('kpi')">📊 KPIs y Avance</div>
   <div class="tab" onclick="switchTab('table')">📋 Tabla Soportes</div>
+  <div class="tab" onclick="switchTab('history')">📅 Histórico</div>
+  <div class="tab-mode-toggle" id="mode-toggle" onclick="toggleMode()">👁 Visor</div>
 </div>
 
 <!-- FILTERS -->
@@ -282,8 +296,11 @@ tbody td{padding:6px 10px;vertical-align:middle;white-space:nowrap}
         <button class="map-toolbar-btn" onclick="resetZoom()">⌂ Reset</button>
         <div class="legend" id="map-legend"></div>
       </div>
-      <canvas id="tunnel-canvas" height="320"></canvas>
-      <div class="map-hint">Scroll para zoom · Arrastra para desplazar · Clic en soporte para ver detalle</div>
+      <canvas id="tunnel-canvas" height="440"></canvas>
+      <div class="map-hint" id="map-hint-bar">
+        Scroll para zoom · Arrastra para desplazar · Clic en soporte para detalle
+        · <b style="color:var(--accent)">Callao ←</b> PV11 → PV19 <b style="color:var(--green)">→ Ate</b>
+      </div>
     </div>
   </div>
 
@@ -380,6 +397,31 @@ tbody td{padding:6px 10px;vertical-align:middle;white-space:nowrap}
 <!-- TOAST -->
 <div class="toast" id="toast"></div>
 
+<!-- HISTORY TAB CONTENT (injected into main later by switchTab) -->
+<div id="tab-history" class="history-main" style="display:none">
+  <div class="section-title">Histórico Semanal – Avance Acumulado</div>
+  <div class="table-wrap" style="padding:16px">
+    <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:12px;align-items:center">
+      <span style="font-size:.82rem;color:var(--text2)">Snapshots guardados:</span>
+      <button class="btn btn-primary" onclick="saveSnapshot()">💾 Guardar snapshot ahora</button>
+      <button class="btn btn-secondary allow-viewer" onclick="loadHistory()">↻ Actualizar</button>
+      <span id="hist-count" style="font-size:.78rem;color:var(--text3)"></span>
+    </div>
+    <canvas id="history-canvas" height="280" style="width:100%;background:#0a0f1e;border-radius:8px;display:block"></canvas>
+    <div style="overflow-x:auto;margin-top:12px">
+      <table id="history-table" style="width:100%;font-size:.78rem;border-collapse:collapse">
+        <thead><tr>
+          <th style="padding:6px 10px;background:var(--bg3);color:var(--text3);text-align:left">Semana</th>
+          <th>Global %</th>
+          <th>Perf</th><th>Fij</th><th>Sop</th><th>Men</th><th>Ais</th><th>Per</th><th>Hilo</th>
+          <th>Soportes completados</th>
+        </tr></thead>
+        <tbody id="history-body"></tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
 <!-- MAP TOOLTIP -->
 <div id="map-tooltip">
   <div class="tt-id" id="tt-id"></div>
@@ -407,7 +449,7 @@ tbody td{padding:6px 10px;vertical-align:middle;white-space:nowrap}
 // ============================================================
 //  CONFIG - REEMPLAZAR CON TU URL DE APPS SCRIPT
 // ============================================================
-const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbwSlR2QoS8Cp1CZZRxEdfcCbullZ9KE_alKL234MoyJw1lXXkS7HQlPuPPbGxxBmQYn3Q/exec'; // pegar aqui la URL completa que termina en /exec
+const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbwSlR2QoS8Cp1CZZRxEdfcCbullZ9KE_alKL234MoyJw1lXXkS7HQlPuPPbGxxBmQYn3Q/exec';
 const USE_LOCAL_DATA = false; // si la API falla, se activa automaticamente soportes.json
 
 // ============================================================
@@ -458,11 +500,16 @@ let modalVia = null;
 let currentTab = 'map';
 let pendingConfirmation = null;
 let usingLocalFallback = USE_LOCAL_DATA;
+let isViewerMode = (new URLSearchParams(window.location.search).get('mode') === 'viewer');
+const MAX_ZOOM = 120; // zoom maximo para ver soporte a soporte
+let historyData = null;
+let alignmentProfile = [];
 
 // ============================================================
 //  INIT
 // ============================================================
 document.addEventListener('DOMContentLoaded', async () => {
+  await loadAlignmentProfile();
   await loadData();
   populateFilters();
   applyFilters();
@@ -472,6 +519,17 @@ document.addEventListener('DOMContentLoaded', async () => {
   renderMap();
   setupMapEvents();
 });
+
+async function loadAlignmentProfile() {
+  try {
+    const response = await fetch('./alignment_profile.json');
+    if (!response.ok) throw new Error('Perfil no disponible');
+    const data = await response.json();
+    alignmentProfile = data.points || [];
+  } catch (error) {
+    alignmentProfile = [];
+  }
+}
 
 // ============================================================
 //  DATA LOADING
@@ -565,13 +623,14 @@ function applyFilters() {
 // ============================================================
 function switchTab(name) {
   currentTab = name;
-  ['map','kpi','table'].forEach(t => {
+  ['map','kpi','table','history'].forEach(t => {
     document.getElementById('tab-'+t).style.display = t === name ? '' : 'none';
   });
   document.querySelectorAll('.tab').forEach((el,i) => {
-    el.classList.toggle('active', ['map','kpi','table'][i] === name);
+    el.classList.toggle('active', ['map','kpi','table','history'][i] === name);
   });
   if (name === 'map') renderMap();
+  if (name === 'history') renderHistory();
 }
 
 // ============================================================
@@ -704,180 +763,359 @@ function getSoporteColor(s) {
   return '#374151';
 }
 
+function alignmentOffsetAt(km) {
+  if (!alignmentProfile.length) return 0;
+  if (km <= alignmentProfile[0].km) return alignmentProfile[0].offset;
+  if (km >= alignmentProfile[alignmentProfile.length-1].km) return alignmentProfile[alignmentProfile.length-1].offset;
+  for (let i=1; i<alignmentProfile.length; i++) {
+    const right = alignmentProfile[i];
+    if (km <= right.km) {
+      const left = alignmentProfile[i-1];
+      const t = (km-left.km)/(right.km-left.km);
+      return left.offset + (right.offset-left.offset)*t;
+    }
+  }
+  return 0;
+}
+
 function renderMap() {
   if (currentTab !== 'map') return;
-  
+
   const W = canvas.offsetWidth;
-  const H = 320;
+  const H = 440;
   canvas.width = W;
   canvas.height = H;
-  
+
   const src = filtered.length > 0 ? filtered : allSoportes;
   if (!src.length) return;
-  
-  // Sort by via then km
-  const sorted = [...src].sort((a,b) => {
-    if (a.via !== b.via) return a.via - b.via;
-    return (a.km||0) - (b.km||0);
-  });
-  
+
+  const sorted = [...src].sort((a,b)=>a.via!==b.via?a.via-b.via:(a.km||0)-(b.km||0));
   const via1 = sorted.filter(s=>s.via===1);
   const via2 = sorted.filter(s=>s.via===2);
-  
-  // Canvas dimensions
+
   ctx.clearRect(0,0,W,H);
-  
-  // Background - tunnel feel
+
+  // Background gradient - tunnel atmosphere
   const bgGrad = ctx.createLinearGradient(0,0,0,H);
-  bgGrad.addColorStop(0,'#050810');
-  bgGrad.addColorStop(1,'#0a0f1e');
+  bgGrad.addColorStop(0,'#040710');
+  bgGrad.addColorStop(0.5,'#0a0f1e');
+  bgGrad.addColorStop(1,'#040710');
   ctx.fillStyle = bgGrad;
   ctx.fillRect(0,0,W,H);
-  
-  // Tunnel arch lines
-  ctx.strokeStyle = 'rgba(30,40,70,0.8)';
-  ctx.lineWidth = 1;
-  for (let i=0;i<5;i++) {
+
+  // Tunnel cross-section arches (subtle)
+  ctx.strokeStyle='rgba(25,40,80,.6)';
+  ctx.lineWidth=1;
+  for(let i=0;i<6;i++){
     ctx.beginPath();
-    ctx.arc(W/2, -50+i*30, W*0.6+i*20, 0, Math.PI);
+    ctx.arc(W/2,-30+i*28,W*.55+i*18,0,Math.PI);
     ctx.stroke();
   }
-  
-  // Calculate positions
-  const kmMin = Math.min(...src.map(s=>s.km||0).filter(k=>k>0));
-  const kmMax = Math.max(...src.map(s=>s.km||0).filter(k=>k>0));
+
+  const validKm = src.map(s=>Number(s.km)||0).filter(k=>k>0);
+  if(!validKm.length) return;
+  const kmMin = Math.min(...validKm);
+  const kmMax = Math.max(...validKm);
   const kmRange = kmMax - kmMin || 1;
-  
-  const MARGIN = 60;
+
+  const MARGIN = 72;
   const USABLE_W = (W - MARGIN*2) * mapScale;
-  const VIA1_Y = H * 0.32;
-  const VIA2_Y = H * 0.68;
-  const WIRE_Y1 = H * 0.18;
-  const WIRE_Y2 = H * 0.82;
-  
+
+  // Layout zones:
+  // Callao label | [VIA 1 tunnel zone] | wall center | [VIA 2 tunnel zone] | Ate label
+  const VIA1_ZONE_TOP    = 30;
+  const VIA1_ZONE_BOT    = H/2 - 10;
+  const VIA2_ZONE_TOP    = H/2 + 10;
+  const VIA2_ZONE_BOT    = H - 30;
+  const VIA1_WALL_Y      = VIA1_ZONE_TOP + 20;   // top wall of tunnel
+  const VIA1_RAIL_Y      = VIA1_ZONE_BOT - 18;   // rail level
+  const VIA2_RAIL_Y      = VIA2_ZONE_TOP + 18;
+  const VIA2_WALL_Y      = VIA2_ZONE_BOT - 20;
+  const VIA1_WIRE_Y      = VIA1_WALL_Y + 16;     // hilo de contacto (below wall anchor)
+  const VIA2_WIRE_Y      = VIA2_WALL_Y - 16;
+  const VIA1_ANCHOR_Y    = VIA1_WALL_Y;           // perno en pared
+  const VIA2_ANCHOR_Y    = VIA2_WALL_Y;
+
   function kmToX(km) {
     return MARGIN + ((km - kmMin) / kmRange) * USABLE_W + mapOffsetX;
   }
-  
-  // Draw rail lines
-  ctx.strokeStyle = 'rgba(100,116,139,0.4)';
-  ctx.lineWidth = 2;
-  ctx.beginPath(); ctx.moveTo(MARGIN+mapOffsetX, VIA1_Y+20); ctx.lineTo(MARGIN+USABLE_W+mapOffsetX, VIA1_Y+20); ctx.stroke();
-  ctx.beginPath(); ctx.moveTo(MARGIN+mapOffsetX, VIA2_Y-20); ctx.lineTo(MARGIN+USABLE_W+mapOffsetX, VIA2_Y-20); ctx.stroke();
-  
-  // Draw via labels
-  ctx.fillStyle = 'rgba(148,163,184,0.6)';
-  ctx.font = 'bold 11px Segoe UI';
-  ctx.textAlign = 'left';
-  ctx.fillText('VIA 1', 4, VIA1_Y+4);
-  ctx.fillText('VIA 2', 4, VIA2_Y+4);
-  
-  // Draw tramo dividers & labels
-  const tramoKmMap = {
-    'PV11-E12': kmMin,
-    'E12-E13': 12000,
-    'E13-E14': 13000,
-    'E14-E15': 14000,
-    'E15-E16': 15000,
-    'E16-E17': 16000,
-    'E17-E18': 17000,
-    'E18-E19': 18000,
-    'E19-PV19': 19000,
-  };
-  
-  const stations = [
-    {label:'PV11', km: kmMin},
-    {label:'E12', km:12000},{label:'E13', km:13000},{label:'E14', km:14000},
-    {label:'E15', km:15000},{label:'E16', km:16000},{label:'E17', km:17000},
-    {label:'E18', km:18000},{label:'E19', km:19000},{label:'PV19', km:19142}
-  ];
-  
-  stations.forEach(st => {
-    const x = kmToX(st.km);
-    if (x < 0 || x > W) return;
-    ctx.strokeStyle = 'rgba(99,102,241,0.3)';
-    ctx.lineWidth = 1;
-    ctx.setLineDash([4,4]);
-    ctx.beginPath(); ctx.moveTo(x,20); ctx.lineTo(x,H-20); ctx.stroke();
-    ctx.setLineDash([]);
-    ctx.fillStyle = 'rgba(129,140,248,0.9)';
-    ctx.font = 'bold 10px Segoe UI';
-    ctx.textAlign = 'center';
-    ctx.fillText(st.label, x, 14);
+
+  // --- Callao / Ate labels (fixed to canvas edges) ---
+  ctx.font='bold 11px Segoe UI';
+  ctx.textAlign='left';
+  ctx.fillStyle='#00c6ff';
+  ctx.fillText('← Callao', 4, H/2 - 4);
+  ctx.textAlign='right';
+  ctx.fillStyle='#22c55e';
+  ctx.fillText('Ate →', W-4, H/2 - 4);
+
+  // Divider line between Via 1 and Via 2
+  ctx.strokeStyle='rgba(45,55,72,.8)';
+  ctx.lineWidth=1.5;
+  ctx.setLineDash([8,5]);
+  ctx.beginPath(); ctx.moveTo(0,H/2); ctx.lineTo(W,H/2); ctx.stroke();
+  ctx.setLineDash([]);
+
+  // Via labels (fixed left)
+  ctx.font='bold 10px Segoe UI';
+  ctx.textAlign='left';
+  ctx.fillStyle='rgba(148,163,184,.65)';
+  ctx.fillText('VIA 1', 4, VIA1_WIRE_Y + 4);
+  ctx.fillText('VIA 2', 4, VIA2_WIRE_Y + 4);
+
+  // --- Tunnel walls (horizontal lines) ---
+  ctx.strokeStyle='rgba(71,85,105,.5)';
+  ctx.lineWidth=1.5;
+  [[VIA1_WALL_Y,VIA1_ZONE_TOP],[VIA1_RAIL_Y,VIA1_ZONE_BOT],[VIA2_RAIL_Y,VIA2_ZONE_TOP],[VIA2_WALL_Y,VIA2_ZONE_BOT]].forEach(([y])=>{
+    ctx.beginPath(); ctx.moveTo(MARGIN+mapOffsetX,y); ctx.lineTo(MARGIN+USABLE_W+mapOffsetX,y); ctx.stroke();
   });
-  
-  // Draw catenary wire (simulated wavy line)
-  function drawWire(viaY, wireY) {
-    ctx.strokeStyle = 'rgba(0,198,255,0.15)';
+
+  // --- Rail (thick) ---
+  ctx.strokeStyle='rgba(100,116,139,.5)';
+  ctx.lineWidth=3;
+  ctx.beginPath(); ctx.moveTo(MARGIN+mapOffsetX,VIA1_RAIL_Y); ctx.lineTo(MARGIN+USABLE_W+mapOffsetX,VIA1_RAIL_Y); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(MARGIN+mapOffsetX,VIA2_RAIL_Y); ctx.lineTo(MARGIN+USABLE_W+mapOffsetX,VIA2_RAIL_Y); ctx.stroke();
+
+  // --- Alineamiento real de planta extraido de los PK del DWG ---
+  if (alignmentProfile.length) {
+    [-4,4].forEach(separation => {
+      ctx.strokeStyle = separation < 0 ? 'rgba(0,198,255,.8)' : 'rgba(34,197,94,.72)';
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      let started = false;
+      alignmentProfile.forEach(point => {
+        const x = kmToX(point.km);
+        const y = H/2 + (point.offset + .5)*50 + separation;
+        if (!started) { ctx.moveTo(x,y); started=true; } else ctx.lineTo(x,y);
+      });
+      ctx.stroke();
+    });
+    ctx.fillStyle='rgba(203,213,225,.72)';
+    ctx.font='8px Segoe UI';
+    ctx.textAlign='center';
+    ctx.fillText('Alineamiento en planta · geometría PK del DWG', W/2, H/2+43);
+  }
+
+  // --- Station / PV dividers ---
+  const stations=[
+    {label:'PV11',km:kmMin},{label:'E12',km:12000},{label:'E13',km:13000},
+    {label:'E14',km:14000},{label:'E15',km:15000},{label:'E16',km:16000},
+    {label:'E17',km:17000},{label:'E18',km:18000},{label:'E19',km:19000},{label:'PV19',km:19142}
+  ];
+  stations.forEach(st=>{
+    const x=kmToX(st.km);
+    if(x<0||x>W) return;
+    ctx.strokeStyle='rgba(99,102,241,.3)';
+    ctx.lineWidth=1;
+    ctx.setLineDash([4,4]);
+    ctx.beginPath(); ctx.moveTo(x,VIA1_ZONE_TOP); ctx.lineTo(x,VIA2_ZONE_BOT); ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.fillStyle='rgba(129,140,248,.9)';
+    ctx.font='bold 9px Segoe UI';
+    ctx.textAlign='center';
+    ctx.fillText(st.label,x,VIA1_ZONE_TOP+10);
+    ctx.fillText(st.label,x,VIA2_ZONE_BOT-2);
+  });
+
+  // --- Contact wire (catenary line - gentle sag) ---
+  function drawCatenaryWire(wireY, color) {
+    const sagAmp = mapScale>4?1:3;
+    ctx.strokeStyle = color;
     ctx.lineWidth = 1;
     ctx.beginPath();
-    ctx.moveTo(MARGIN+mapOffsetX, wireY);
-    for (let x=MARGIN+mapOffsetX; x<MARGIN+USABLE_W+mapOffsetX; x+=6) {
-      const wave = Math.sin((x-mapOffsetX)*0.04)*3;
-      ctx.lineTo(x, wireY + wave);
+    const startX = MARGIN+mapOffsetX;
+    const endX = startX + USABLE_W;
+    ctx.moveTo(startX, wireY);
+    for(let x=startX; x<=endX; x+=4){
+      const t=(x-startX)/USABLE_W;
+      const sag = sagAmp * Math.sin(t*Math.PI*20);
+      ctx.lineTo(x, wireY+sag);
     }
     ctx.stroke();
   }
-  drawWire(VIA1_Y, WIRE_Y1);
-  drawWire(VIA2_Y, WIRE_Y2);
-  
-  // Draw soportes
-  const soporteRadius = Math.max(2.5, Math.min(5, USABLE_W / (src.length/2) * 0.3));
-  
-  function drawSoportes(list, viaY, wireY) {
-    list.forEach(s => {
-      if (!s.km) return;
-      const x = kmToX(s.km);
-      if (x < 0 || x > W) return;
-      
-      const color = getSoporteColor(s);
-      
-      // Support bracket line
-      ctx.strokeStyle = color;
-      ctx.lineWidth = 1;
-      ctx.globalAlpha = 0.7;
-      ctx.beginPath();
-      ctx.moveTo(x, wireY);
-      ctx.lineTo(x, viaY > H/2 ? viaY - 8 : viaY + 8);
-      ctx.stroke();
-      
-      // Mensula (horizontal arm at wire)
-      ctx.beginPath();
-      ctx.moveTo(x-4, wireY);
-      ctx.lineTo(x+4, wireY);
-      ctx.stroke();
-      
-      // Soporte circle
-      ctx.globalAlpha = 1;
-      ctx.fillStyle = color;
-      ctx.beginPath();
-      ctx.arc(x, viaY > H/2 ? viaY - 10 : viaY + 10, soporteRadius, 0, Math.PI*2);
-      ctx.fill();
-      
-      // Glow for done soportes
-      if (s.pct >= 100) {
-        ctx.shadowColor = color;
-        ctx.shadowBlur = 6;
+  drawCatenaryWire(VIA1_WIRE_Y, 'rgba(0,198,255,.25)');
+  drawCatenaryWire(VIA2_WIRE_Y, 'rgba(0,198,255,.25)');
+
+  // ---  SOPORTES DRAWING ---
+  const pixelSpacing = USABLE_W / (via1.length || 1);
+  const isDetail = mapScale >= 32; // espacio suficiente para ver cada estructura sin solape
+  const soporteR = isDetail ? 0 : Math.max(2, Math.min(4.5, pixelSpacing * 0.35));
+
+  function drawTechnicalSupport(s, wallY, railY, wireY, isTop) {
+    if(!s.km) return;
+    const x = kmToX(Number(s.km));
+    if(x < -20 || x > W+20) return;
+
+    const color = getSoporteColor(s);
+    const sign = isTop ? 1 : -1; // 1=via1 goes downward, -1=via2 goes upward
+
+    if(isDetail) {
+      // ===== TECHNICAL DETAIL DRAWING =====
+      const wallAnchorY = wallY;
+      const tubeTopY    = wallAnchorY + sign*4;
+      const tubeBotY    = wallAnchorY + sign*28;   // soporte tube bottom
+      const mensulaTipX = x + 14;                  // mensula extends right (toward track center)
+      const mensulaMidY = wallAnchorY + sign*22;
+      const profileY    = wireY;
+      const contactY    = wireY + sign*8;
+
+      ctx.globalAlpha = 0.95;
+
+      // 1. PERFORACION - perno en pared (X marks in wall)
+      if(s.perforacion) {
+        ctx.strokeStyle='#818cf8'; ctx.lineWidth=1.5;
+        [[-3,-3],[3,-3],[3,3],[-3,3]].forEach(([dx,dy])=>{
+          ctx.beginPath(); ctx.moveTo(x-3,wallAnchorY+dy-sign*2); ctx.lineTo(x+3,wallAnchorY+dy+sign*2); ctx.stroke();
+        });
+        ctx.strokeStyle='#818cf8'; ctx.lineWidth=1.5;
         ctx.beginPath();
-        ctx.arc(x, viaY > H/2 ? viaY - 10 : viaY + 10, soporteRadius, 0, Math.PI*2);
-        ctx.fill();
-        ctx.shadowBlur = 0;
+        ctx.moveTo(x-4,wallAnchorY); ctx.lineTo(x+4,wallAnchorY); ctx.stroke();
+        ctx.beginPath();
+        ctx.moveTo(x,wallAnchorY-sign*4); ctx.lineTo(x,wallAnchorY+sign*4); ctx.stroke();
+      } else {
+        ctx.strokeStyle='rgba(129,140,248,.3)'; ctx.lineWidth=1;
+        ctx.strokeRect(x-3,wallAnchorY-3,6,6);
       }
-      
-      // Special badge
-      if (s.situacion === 'Adicional') {
-        ctx.fillStyle = '#f97316';
-        ctx.font = 'bold 7px Segoe UI';
-        ctx.textAlign = 'center';
-        ctx.fillText('+', x, viaY > H/2 ? viaY-9 : viaY+11);
+
+      // 2. FIJACION - fijacion plate (small square on wall)
+      if(s.fijacion) {
+        ctx.fillStyle='#38bdf8';
+        ctx.fillRect(x-3, sign>0 ? wallAnchorY+1 : wallAnchorY-6, 6, 5);
       }
-    });
+
+      // 3. SOPORTE - vertical tube
+      if(s.soporte) {
+        ctx.strokeStyle='#34d399'; ctx.lineWidth=3;
+        ctx.beginPath();
+        ctx.moveTo(x, tubeTopY); ctx.lineTo(x, tubeBotY); ctx.stroke();
+        // diagonal brace (like in diagram)
+        ctx.strokeStyle='#34d399'; ctx.lineWidth=1.5;
+        ctx.beginPath();
+        ctx.moveTo(x, tubeTopY+sign*4); ctx.lineTo(x+10, tubeTopY+sign*16); ctx.stroke();
+      } else {
+        ctx.strokeStyle='rgba(52,211,153,.25)'; ctx.lineWidth=1;
+        ctx.beginPath(); ctx.moveTo(x,tubeTopY); ctx.lineTo(x,tubeBotY); ctx.stroke();
+      }
+
+      // 4. MENSULA - horizontal arm from tube end
+      if(s.mensula) {
+        ctx.strokeStyle='#a3e635'; ctx.lineWidth=2.5;
+        ctx.beginPath();
+        ctx.moveTo(x, mensulaMidY); ctx.lineTo(mensulaTipX+4, mensulaMidY); ctx.stroke();
+        // small bracket cap
+        ctx.fillStyle='#a3e635';
+        ctx.fillRect(mensulaTipX+2, mensulaMidY-3, 5, 6);
+      }
+
+      // 5. AISLADORES - disc shapes (3 discs)
+      if(s.aislador) {
+        const aisX = mensulaTipX + 8;
+        ctx.fillStyle='#fbbf24';
+        for(let d=0;d<3;d++){
+          const ax = aisX + d*6;
+          ctx.beginPath();
+          ctx.ellipse(ax, profileY, 2.5, 1.2, 0, 0, Math.PI*2);
+          ctx.fill();
+        }
+        // suspension wire from mensula to insulators
+        ctx.strokeStyle='rgba(251,191,36,.6)'; ctx.lineWidth=1;
+        ctx.beginPath(); ctx.moveTo(mensulaTipX, mensulaMidY); ctx.lineTo(aisX-2, profileY); ctx.stroke();
+      }
+
+      // 6. PERFIL - rigid profile (CR bar)
+      if(s.perfil) {
+        const profX = mensulaTipX + 8;
+        ctx.strokeStyle='#fb923c'; ctx.lineWidth=3;
+        ctx.beginPath();
+        ctx.moveTo(profX+10, profileY); ctx.lineTo(profX+32, profileY); ctx.stroke();
+        // profile detail notch
+        ctx.strokeStyle='#fb923c'; ctx.lineWidth=1;
+        ctx.strokeRect(profX+10, profileY-1, 22, 3);
+      }
+
+      // 7. HILO DE CONTACTO - contact wire
+      if(s.hilo) {
+        const hwX = mensulaTipX + 15;
+        ctx.strokeStyle='#f472b6'; ctx.lineWidth=2;
+        ctx.beginPath();
+        ctx.moveTo(hwX, profileY+sign*5); ctx.lineTo(hwX+12, profileY+sign*5); ctx.stroke();
+        // hanger from profile
+        ctx.strokeStyle='rgba(244,114,182,.6)'; ctx.lineWidth=1;
+        ctx.beginPath();
+        ctx.moveTo(hwX+6, profileY); ctx.lineTo(hwX+6, profileY+sign*5); ctx.stroke();
+      }
+
+      // Soporte ID label when detail zoom
+      if(mapScale >= 18) {
+        ctx.fillStyle = color;
+        ctx.font='8px Segoe UI';
+        ctx.textAlign='center';
+        ctx.fillText(s.id, x, isTop ? tubeBotY+10 : tubeBotY-2);
+      }
+
+      // Completion % mini-badge
+      const badgeY = isTop ? wireY+14 : wireY-14;
+      ctx.fillStyle = color;
+      ctx.font='bold 7px Segoe UI';
+      ctx.textAlign='center';
+      ctx.fillText(s.pct+'%', x, badgeY);
+
+    } else {
+      // ===== OVERVIEW DRAWING (original compact style) =====
+      ctx.globalAlpha = 0.75;
+      // vertical line: wall → wire
+      ctx.strokeStyle=color; ctx.lineWidth=1;
+      ctx.beginPath();
+      ctx.moveTo(x, wallY); ctx.lineTo(x, wireY); ctx.stroke();
+      // mensula tick at wire
+      ctx.beginPath(); ctx.moveTo(x-3,wireY); ctx.lineTo(x+3,wireY); ctx.stroke();
+      // soporte dot
+      ctx.globalAlpha=1;
+      ctx.fillStyle=color;
+      ctx.beginPath();
+      ctx.arc(x, isTop ? wallY+10 : wallY-10, soporteR, 0, Math.PI*2);
+      ctx.fill();
+      if(s.pct>=100) {
+        ctx.shadowColor=color; ctx.shadowBlur=5;
+        ctx.beginPath(); ctx.arc(x, isTop ? wallY+10 : wallY-10, soporteR, 0, Math.PI*2); ctx.fill();
+        ctx.shadowBlur=0;
+      }
+      // adicional mark
+      if(s.situacion==='Adicional') {
+        ctx.fillStyle='#f97316'; ctx.font='bold 6px Segoe UI'; ctx.textAlign='center';
+        ctx.fillText('+', x, isTop ? wallY+11 : wallY-9);
+      }
+    }
+    ctx.globalAlpha=1;
   }
-  
-  drawSoportes(via1, VIA1_Y, WIRE_Y1);
-  drawSoportes(via2, VIA2_Y, WIRE_Y2);
-  
-  // Legend
+
+  via1.forEach(s => drawTechnicalSupport(s, VIA1_ANCHOR_Y, VIA1_RAIL_Y, VIA1_WIRE_Y, true));
+  via2.forEach(s => drawTechnicalSupport(s, VIA2_ANCHOR_Y, VIA2_RAIL_Y, VIA2_WIRE_Y, false));
+
+  // Zoom level indicator
+  if(mapScale > 1) {
+    ctx.fillStyle='rgba(0,198,255,.7)';
+    ctx.font='10px Segoe UI';
+    ctx.textAlign='right';
+    ctx.fillText('x'+mapScale.toFixed(1), W-4, 16);
+    if(mapScale>=32) {
+      ctx.fillStyle='rgba(165,243,252,.6)';
+      ctx.font='9px Segoe UI';
+      ctx.fillText('Vista detallada · cada estructura visible', W-4, 28);
+      const stageLegend=[
+        ['PERF','#ef4444'],['FIJ','#a855f7'],['SOP','#22d3ee'],['MÉN','#22c55e'],
+        ['AIS','#facc15'],['PERFIL','#bef264'],['HILO','#fbbf24']
+      ];
+      let legendX=Math.max(170,W-500);
+      ctx.font='7px Segoe UI';ctx.textAlign='left';
+      stageLegend.forEach(([label,color])=>{
+        ctx.fillStyle=color;ctx.fillRect(legendX,34,7,3);
+        ctx.fillStyle='#94a3b8';ctx.fillText(label,legendX+10,38);
+        legendX+=ctx.measureText(label).width+26;
+      });
+    }
+  }
+
   updateMapLegend();
 }
 
@@ -913,11 +1151,37 @@ function legend(items) {
 }
 
 // Map zoom & pan
-function zoomIn()  { mapScale = Math.min(8, mapScale*1.5); renderMap(); }
+function zoomIn()  { mapScale = Math.min(MAX_ZOOM, mapScale*1.5); renderMap(); }
 function zoomOut() { mapScale = Math.max(1, mapScale/1.5); if(mapScale<=1) mapOffsetX=0; renderMap(); }
 function resetZoom(){ mapScale=1; mapOffsetX=0; mapOffsetY=0; renderMap(); }
 
-function findMapSoporteAt(clientX, clientY, radius=14) {
+// ---- Mode toggle Editor / Viewer ----
+function toggleMode() {
+  isViewerMode = !isViewerMode;
+  const btn = document.getElementById('mode-toggle');
+  if (isViewerMode) {
+    document.body.classList.add('viewer-mode');
+    btn.textContent = '✏ Editor';
+    btn.classList.add('editor-mode');
+    showToast('Modo Visor: solo lectura');
+  } else {
+    document.body.classList.remove('viewer-mode');
+    btn.textContent = '👁 Visor';
+    btn.classList.remove('editor-mode');
+    showToast('Modo Editor: puedes actualizar avance');
+  }
+  const url = new URL(window.location.href);
+  url.searchParams.set('mode', isViewerMode ? 'viewer' : 'editor');
+  history.replaceState({}, '', url);
+}
+// Apply initial viewer mode
+if (isViewerMode) {
+  document.body.classList.add('viewer-mode');
+  const btn = document.getElementById('mode-toggle');
+  if (btn) { btn.textContent = '✏ Editor'; btn.classList.add('editor-mode'); }
+}
+
+function findMapSoporteAt(clientX, clientY, radius=16) {
   const rect = canvas.getBoundingClientRect();
   const cx = (clientX - rect.left) * (canvas.width / rect.width);
   const cy = (clientY - rect.top) * (canvas.height / rect.height);
@@ -927,15 +1191,16 @@ function findMapSoporteAt(clientX, clientY, radius=14) {
   const kmMin = Math.min(...validKm);
   const kmMax = Math.max(...validKm);
   const kmRange = kmMax - kmMin || 1;
-  const margin = 60;
+  const margin = 72;
   const usableW = (canvas.width - margin*2) * mapScale;
-  const via1Y = canvas.height * 0.32 + 10;
-  const via2Y = canvas.height * 0.68 - 10;
+  const H = canvas.height;
+  const via1WallY = H*0.068 + 20;  // VIA1_WALL_Y ~50px
+  const via2WallY = H - 50;        // VIA2_WALL_Y
   let closest = null, minDist = radius;
   src.forEach(s => {
     if (!s.km) return;
-    const x = margin + ((s.km-kmMin)/kmRange)*usableW + mapOffsetX;
-    const y = s.via==1 ? via1Y : via2Y;
+    const x = margin + ((Number(s.km)-kmMin)/kmRange)*usableW + mapOffsetX;
+    const y = s.via==1 ? via1WallY+10 : via2WallY-10;
     const dist = Math.hypot(cx-x, cy-y);
     if (dist < minDist) { minDist=dist; closest=s; }
   });
@@ -1150,6 +1415,7 @@ function confirmOk() {
 }
 
 async function toggleAct(id, via, act, el) {
+  if (isViewerMode) { showToast('Modo visor: edición deshabilitada', true); return; }
   const s = allSoportes.find(x=>x.id===id && x.via==via);
   if (!s) return;
   const idx = ACTS.findIndex(a=>a.key===act);
@@ -1182,6 +1448,7 @@ async function toggleAct(id, via, act, el) {
 }
 
 async function saveComment(id, via, value) {
+  if (isViewerMode) return;
   const s = allSoportes.find(x=>x.id===id && x.via==via);
   if (!s || s.comentario === value) return;
   s.comentario = value;
@@ -1229,6 +1496,7 @@ function openModal(id, via) {
 }
 
 function toggleModalAct(act, el) {
+  if (isViewerMode) return;
   const idx = ACTS.findIndex(a=>a.key===act);
   if (idx < 0) return;
   const modalItems = [...document.querySelectorAll('#modal-acts .act-item')];
@@ -1275,6 +1543,7 @@ function closeModal() {
 }
 
 async function saveModal() {
+  if (isViewerMode) { showToast('Modo visor: edición deshabilitada', true); return; }
   const s = modalSoporte;
   if (!s) return;
   
@@ -1309,6 +1578,7 @@ async function saveModal() {
 //  SERVER SYNC
 // ============================================================
 async function saveToServer(s, changes) {
+  if (isViewerMode) throw new Error('Modo visor: escritura bloqueada');
   if (USE_LOCAL_DATA || usingLocalFallback) {
     // Save to localStorage as backup
     localStorage.setItem('cat_'+s.id+'_'+s.via, JSON.stringify(s));
@@ -1341,6 +1611,7 @@ async function saveToServer(s, changes) {
 //  BULK MARK
 // ============================================================
 async function bulkMarkModal() {
+  if (isViewerMode) { showToast('Modo visor: edición deshabilitada', true); return; }
   const selected = [...document.querySelectorAll('.row-sel:checked')];
   if (!selected.length) { showToast('Selecciona soportes primero', true); return; }
   // Simple prompt - mark all selected with a specific activity
@@ -1358,6 +1629,136 @@ async function bulkMarkModal() {
   }
   refreshDashboard();
   showToast(`✓ ${selected.length} soportes actualizados`);
+}
+
+// ============================================================
+//  HISTORICO SEMANAL
+// ============================================================
+function currentWeekLabel(date=new Date()) {
+  const d = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
+  const day = d.getUTCDay() || 7;
+  d.setUTCDate(d.getUTCDate()+4-day);
+  const yearStart = new Date(Date.UTC(d.getUTCFullYear(),0,1));
+  const week = Math.ceil((((d-yearStart)/86400000)+1)/7);
+  return d.getUTCFullYear()+'-S'+String(week).padStart(2,'0');
+}
+
+function buildCurrentSnapshot() {
+  const total = allSoportes.length || 1;
+  const snapshot = {
+    timestamp:new Date().toISOString(),
+    semana:currentWeekLabel(),
+    global_pct:allSoportes.reduce((sum,s)=>sum+Number(s.pct||0),0)/total,
+    completados:allSoportes.filter(s=>Number(s.pct)>=100).length,
+    total_soportes:allSoportes.length,
+    usuario:document.getElementById('f-user').value || 'web'
+  };
+  ACTS.forEach(a => snapshot[a.key] = allSoportes.filter(s=>Number(s[a.key])===1).length/total*100);
+  return snapshot;
+}
+
+async function loadHistory() {
+  try {
+    if (usingLocalFallback || !APPS_SCRIPT_URL) throw new Error('backend no disponible');
+    const separator = APPS_SCRIPT_URL.includes('?') ? '&' : '?';
+    const response = await fetch(APPS_SCRIPT_URL+separator+'action=history&_='+Date.now());
+    if (!response.ok) throw new Error('HTTP '+response.status);
+    const data = await response.json();
+    if (!data.ok) throw new Error(data.error || 'Historico no disponible');
+    historyData = data.history || [];
+  } catch (error) {
+    try { historyData = JSON.parse(localStorage.getItem('catenaria_history') || '[]'); }
+    catch (_) { historyData = []; }
+  }
+  drawHistory();
+}
+
+async function saveSnapshot() {
+  if (isViewerMode) { showToast('Modo visor: no puede guardar cortes', true); return; }
+  const snapshot = buildCurrentSnapshot();
+  if (usingLocalFallback || !APPS_SCRIPT_URL) {
+    const local = JSON.parse(localStorage.getItem('catenaria_history') || '[]');
+    const index = local.findIndex(item=>item.semana===snapshot.semana);
+    if (index>=0) local[index]=snapshot; else local.push(snapshot);
+    localStorage.setItem('catenaria_history',JSON.stringify(local));
+    historyData=local;
+    drawHistory();
+    showToast('Snapshot guardado localmente');
+    return;
+  }
+  try {
+    const response = await fetch(APPS_SCRIPT_URL, {
+      method:'POST',
+      body:JSON.stringify({action:'save_snapshot',actualizado_por:snapshot.usuario})
+    });
+    const result = await response.json();
+    if (!result.ok) throw new Error(result.error || 'No se pudo guardar');
+    showToast('✓ Corte '+result.semana+' guardado en Google Sheets');
+    await loadHistory();
+  } catch (error) {
+    showToast('Error guardando histórico: '+error.message, true);
+  }
+}
+
+async function renderHistory() {
+  if (historyData === null) await loadHistory();
+  else drawHistory();
+}
+
+function drawHistory() {
+  const data = [...(historyData || [])].sort((a,b)=>String(a.semana).localeCompare(String(b.semana)));
+  const body = document.getElementById('history-body');
+  document.getElementById('hist-count').textContent = data.length+' semanas';
+  body.innerHTML = data.map(row => `<tr>
+    <td>${row.semana||'-'}</td>
+    <td style="color:var(--accent);font-weight:700">${Number(row.global_pct||0).toFixed(1)}%</td>
+    ${ACTS.map(a=>`<td>${Number(row[a.key]||0).toFixed(1)}%</td>`).join('')}
+    <td>${Number(row.completados||0)} / ${Number(row.total_soportes||0)}</td>
+  </tr>`).join('');
+
+  const canvas = document.getElementById('history-canvas');
+  const width = canvas.offsetWidth || 1000;
+  const height = 280;
+  canvas.width=width; canvas.height=height;
+  const chart=canvas.getContext('2d');
+  chart.clearRect(0,0,width,height);
+  chart.fillStyle='#0a0f1e'; chart.fillRect(0,0,width,height);
+  const pad={left:42,right:16,top:24,bottom:38};
+  const cw=width-pad.left-pad.right, ch=height-pad.top-pad.bottom;
+  chart.font='10px Segoe UI'; chart.textAlign='right'; chart.fillStyle='#64748b';
+  for(let pct=0;pct<=100;pct+=20){
+    const y=pad.top+ch-(pct/100)*ch;
+    chart.strokeStyle='rgba(71,85,105,.35)'; chart.lineWidth=1;
+    chart.beginPath(); chart.moveTo(pad.left,y); chart.lineTo(width-pad.right,y); chart.stroke();
+    chart.fillText(pct+'%',pad.left-6,y+3);
+  }
+  if (!data.length) {
+    chart.fillStyle='#64748b'; chart.textAlign='center'; chart.font='13px Segoe UI';
+    chart.fillText('Aún no hay cortes semanales. En Editor, pulsa “Guardar snapshot ahora”.',width/2,height/2);
+    return;
+  }
+  const series=[{key:'global_pct',color:'#00c6ff',width:3},...ACTS.map(a=>({key:a.key,color:a.color,width:1}))];
+  series.forEach(serie=>{
+    chart.strokeStyle=serie.color; chart.lineWidth=serie.width; chart.beginPath();
+    data.forEach((row,index)=>{
+      const x=pad.left+(data.length===1?cw/2:index*cw/(data.length-1));
+      const y=pad.top+ch-Math.max(0,Math.min(100,Number(row[serie.key]||0)))/100*ch;
+      if(index===0) chart.moveTo(x,y); else chart.lineTo(x,y);
+    });
+    chart.stroke();
+  });
+  chart.textAlign='center'; chart.fillStyle='#94a3b8'; chart.font='9px Segoe UI';
+  data.forEach((row,index)=>{
+    if(data.length>12 && index%Math.ceil(data.length/12)!==0 && index!==data.length-1) return;
+    const x=pad.left+(data.length===1?cw/2:index*cw/(data.length-1));
+    chart.fillText(row.semana,x,height-14);
+  });
+  let legendX=pad.left;
+  [{key:'global_pct',label:'Global',color:'#00c6ff'},...ACTS].forEach(item=>{
+    chart.fillStyle=item.color; chart.fillRect(legendX,pad.top-16,8,3);
+    chart.fillStyle='#94a3b8'; chart.textAlign='left'; chart.fillText(item.label||item.key,legendX+11,pad.top-11);
+    legendX+=chart.measureText(item.label||item.key).width+25;
+  });
 }
 
 // ============================================================
