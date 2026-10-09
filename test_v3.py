@@ -54,4 +54,13 @@ data = json.loads(Path("soportes.json").read_text(encoding="utf-8"))
 assert len(data['soportes'])==1869, f"FAIL supports count={len(data['soportes'])}"
 print(f"PASS 12 - 1869 soportes in JSON")
 
-print(f"\n12/12 PASS - {len(s):,} chars")
+# 13. Shared daily report from Sheets
+assert "action=daily_report" in s, "FAIL shared daily report endpoint"
+assert "async function showDailyReport" in s, "FAIL async daily report"
+print("PASS 13 - Shared daily report")
+
+# 14. Exact Lima date display formatter
+assert "function formatDateTimeLima" in s, "FAIL DD/MM/YYYY HH:MM formatter"
+print("PASS 14 - Date format DD/MM/YYYY HH:MM")
+
+print(f"\n14/14 PASS - {len(s):,} chars")

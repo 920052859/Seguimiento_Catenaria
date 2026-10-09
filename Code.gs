@@ -9,6 +9,7 @@
 const SHEET_ID = '1wzNnsSueQ1yXRlWBI8qd-xWiGLyo1uf8rSDXXSeXb2s'; // Respaldo: Google Sheet Soportes.
 const SHEET_NAME = 'Soportes';
 const LOG_SHEET = 'Log';
+const DAILY_LOG_SHEET = 'Log_Diario';
 const HISTORY_SHEET = 'Historico';
 const ACTIVITIES = ['perforacion','fijacion','soporte','mensula','aislador','perfil','hilo'];
 const WEIGHTS = {
@@ -19,6 +20,20 @@ const WEIGHTS = {
 function jsonResponse(result) {
   return ContentService.createTextOutput(JSON.stringify(result))
     .setMimeType(ContentService.MimeType.JSON);
+}
+
+function formatLimaDateTime(date) {
+  return Utilities.formatDate(date, 'America/Lima', 'dd/MM/yyyy HH:mm');
+}
+
+function limaDateKey(date) {
+  return Utilities.formatDate(date, 'America/Lima', 'yyyy-MM-dd');
+}
+
+function activityDeltaMask(beforeValues, afterValues) {
+  return ACTIVITIES.map((activity, index) =>
+    Number(beforeValues[index]) !== 1 && Number(afterValues[index]) === 1 ? '1' : '0'
+  ).join('');
 }
 
 function getSpreadsheet() {
@@ -35,13 +50,26 @@ function getSpreadsheet() {
 function getSheetOrThrow(ss) {
   const ws = ss.getSheetByName(SHEET_NAME);
   if (!ws) throw new Error('No existe la pestaña "' + SHEET_NAME + '". Renombra la pestaña importada exactamente como Soportes.');
+  ensureOperationalColumns(ws);
   return ws;
+}
+
+function ensureOperationalColumns(ws) {
+  const headers = ws.getRange(1, 1, 1, ws.getLastColumn()).getValues()[0]
+    .map(h => String(h).trim());
+  ['vehiculo', 'que_se_actualiza'].forEach(header => {
+    if (headers.indexOf(header) < 0) {
+      ws.getRange(1, ws.getLastColumn() + 1).setValue(header);
+      headers.push(header);
+    }
+  });
 }
 
 function headerIndex(headers) {
   const idx = {};
   headers.forEach((h, i) => { idx[String(h).trim()] = i; });
-  const required = ['id','via','tramo','km','situacion'].concat(ACTIVITIES, ['pct','comentario','fecha_update','actualizado_por']);
+  const required = ['id','via','tramo','km','situacion'].concat(ACTIVITIES,
+    ['pct','comentario','fecha_update','actualizado_por','vehiculo','que_se_actualiza']);
   const missing = required.filter(h => idx[h] === undefined);
   if (missing.length) throw new Error('Faltan encabezados en la fila 1: ' + missing.join(', '));
   return idx;
@@ -55,6 +83,7 @@ function configurar() {
   }
   getSheetOrThrow(active);
   ensureHistorySheet(active);
+  ensureDailyLogSheet(active);
   PropertiesService.getScriptProperties().setProperty('SHEET_ID', active.getId());
   return probarConexion();
 }
@@ -80,6 +109,7 @@ function doGet(e) {
     else if (action === 'summary') result = getSummary();
     else if (action === 'tramo') result = getByTramo(e.parameter.tramo);
     else if (action === 'history') result = getHistory();
+    else if (action === 'daily_report') result = getDailyReport(e.parameter.date || '');
     else if (action === 'health') result = {ok:true, message:probarConexion()};
     else result = {ok:false, error:'Accion no reconocida: ' + action};
     return jsonResponse(result);
@@ -172,7 +202,8 @@ function updateSoporte(body) {
     const idx = headerIndex(headers);
     const soporteId = String(body.id);
     const via = body.via ? Number(body.via) : null;
-    const now = new Date().toISOString();
+    const now = new Date();
+    const formattedNow = formatLimaDateTime(now);
 
     let rowNumber = -1;
     let values = null;
@@ -184,6 +215,8 @@ function updateSoporte(body) {
       break;
     }
     if (rowNumber < 0) return {ok:false, error:'Soporte no encontrado: ' + soporteId};
+
+    const previousActivityValues = ACTIVITIES.map(a => Number(values[idx[a]]) === 1 ? 1 : 0);
 
     // Secuencia obligatoria: al completar una etapa, completa todas las previas.
     // No permite borrar una etapa si existe alguna posterior terminada.
@@ -204,6 +237,7 @@ function updateSoporte(body) {
 
     // Columnas de actividades son consecutivas: perforacion ... hilo.
     const activityValues = ACTIVITIES.map(a => Number(values[idx[a]]) === 1 ? 1 : 0);
+    const deltaMask = activityDeltaMask(previousActivityValues, activityValues);
     ws.getRange(rowNumber, idx[ACTIVITIES[0]]+1, 1, ACTIVITIES.length).setValues([activityValues]);
 
     let pct = 0;
@@ -211,13 +245,26 @@ function updateSoporte(body) {
     const pctValue = Math.round(pct*1000)/10;
     ws.getRange(rowNumber, idx.pct+1).setValue(pctValue);
     if (body.comentario !== undefined) ws.getRange(rowNumber, idx.comentario+1).setValue(body.comentario);
-    ws.getRange(rowNumber, idx.fecha_update+1).setValue(now);
+    ws.getRange(rowNumber, idx.fecha_update+1).setValue(formattedNow);
     if (body.actualizado_por) ws.getRange(rowNumber, idx.actualizado_por+1).setValue(body.actualizado_por);
+    if (body.vehiculo !== undefined) ws.getRange(rowNumber, idx.vehiculo+1).setValue(body.vehiculo || '');
+    ws.getRange(rowNumber, idx.que_se_actualiza+1).setNumberFormat('@').setValue(deltaMask);
 
-    logChange(soporteId, via, body, now, ss);
-    updateLastUpdate(now, ss);
+    logChange(soporteId, via, body, formattedNow, ss);
+    logDailyChange({
+      timestamp: formattedNow,
+      id: soporteId,
+      via: via || Number(values[idx.via]),
+      tramo: values[idx.tramo],
+      mask: deltaMask,
+      vehiculo: body.vehiculo || values[idx.vehiculo] || '',
+      comentario: body.comentario || '',
+      usuario: body.actualizado_por || 'web',
+      pct: pctValue
+    }, ss);
+    updateLastUpdate(formattedNow, ss);
     SpreadsheetApp.flush();
-    return {ok:true, id:soporteId, pct:pctValue, timestamp:now};
+    return {ok:true, id:soporteId, pct:pctValue, timestamp:formattedNow, que_se_actualiza:deltaMask};
   } finally {
     lock.releaseLock();
   }
@@ -257,6 +304,77 @@ function logChange(id, via, body, ts, ss) {
   if (body.comentario !== undefined && !ACTIVITIES.some(a => body[a] !== undefined)) {
     log.appendRow([ts,id,via,'comentario','',body.comentario||'',body.actualizado_por||'']);
   }
+}
+
+// ============================================================
+// REPORTE DIARIO COMPARTIDO - un evento persistente por guardado
+// Mascara: perforacion, fijacion, soporte, mensula, aislador, perfil, hilo.
+// Ejemplo 1100000 = se sumaron perforacion y fijacion.
+// ============================================================
+function dailyLogHeaders() {
+  return ['fecha_update','id','via','tramo','que_se_actualiza','actividades',
+    'vehiculo','comentario','actualizado_por','pct'];
+}
+
+function ensureDailyLogSheet(ss) {
+  let ws = ss.getSheetByName(DAILY_LOG_SHEET);
+  if (!ws) ws = ss.insertSheet(DAILY_LOG_SHEET);
+  const headers = dailyLogHeaders();
+  if (ws.getLastRow() === 0) {
+    ws.getRange(1, 1, 1, headers.length).setValues([headers]);
+    ws.setFrozenRows(1);
+  }
+  ws.getRange('A:A').setNumberFormat('@');
+  ws.getRange('E:E').setNumberFormat('@');
+  return ws;
+}
+
+function activitiesFromMask(mask) {
+  const bits = String(mask || '').padStart(ACTIVITIES.length, '0').slice(-ACTIVITIES.length);
+  return ACTIVITIES.filter((activity, index) => bits[index] === '1');
+}
+
+function logDailyChange(event, ss) {
+  const ws = ensureDailyLogSheet(ss);
+  const activities = activitiesFromMask(event.mask);
+  ws.appendRow([
+    event.timestamp, event.id, event.via, event.tramo, String(event.mask),
+    activities.join(', '), event.vehiculo, event.comentario,
+    event.usuario, event.pct
+  ]);
+  const row = ws.getLastRow();
+  ws.getRange(row, 1).setNumberFormat('@');
+  ws.getRange(row, 5).setNumberFormat('@');
+}
+
+function dateKeyFromStoredValue(value) {
+  if (value instanceof Date) return limaDateKey(value);
+  const text = String(value || '').trim();
+  const pe = text.match(/^(\d{2})\/(\d{2})\/(\d{4})/);
+  if (pe) return pe[3] + '-' + pe[2] + '-' + pe[1];
+  const parsed = new Date(text);
+  return isNaN(parsed.getTime()) ? '' : limaDateKey(parsed);
+}
+
+function getDailyReport(requestedDate) {
+  const ss = getSpreadsheet();
+  const ws = ensureDailyLogSheet(ss);
+  const dateKey = /^\d{4}-\d{2}-\d{2}$/.test(String(requestedDate || ''))
+    ? String(requestedDate) : limaDateKey(new Date());
+  const data = ws.getDataRange().getValues();
+  if (data.length < 2) return {ok:true, date:dateKey, events:[]};
+  const headers = data[0].map(h => String(h).trim());
+  const events = data.slice(1).filter(row => dateKeyFromStoredValue(row[0]) === dateKey)
+    .map(row => {
+      const event = {};
+      headers.forEach((header, index) => { event[header] = row[index]; });
+      event.fecha_update = event.fecha_update instanceof Date
+        ? formatLimaDateTime(event.fecha_update) : String(event.fecha_update || '');
+      event.que_se_actualiza = String(event.que_se_actualiza || '').padStart(7, '0');
+      event.actividades = activitiesFromMask(event.que_se_actualiza);
+      return event;
+    });
+  return {ok:true, date:dateKey, events:events};
 }
 
 // ============================================================

@@ -872,11 +872,29 @@ async function loadData() {
     document.getElementById('last-ts').textContent = now;
 }
 
+function formatDateTimeLima(value) {
+  if (!value) return '';
+  const text = String(value).trim();
+  if (/^\d{2}\/\d{2}\/\d{4} \d{2}:\d{2}$/.test(text)) return text;
+  const date = value instanceof Date ? value : new Date(value);
+  if (isNaN(date.getTime())) return text;
+  const parts = new Intl.DateTimeFormat('es-PE', {
+    timeZone:'America/Lima', day:'2-digit', month:'2-digit', year:'numeric',
+    hour:'2-digit', minute:'2-digit', hourCycle:'h23'
+  }).formatToParts(date).reduce((out, part) => (out[part.type]=part.value, out), {});
+  return `${parts.day}/${parts.month}/${parts.year} ${parts.hour}:${parts.minute}`;
+}
+
+function limaDateKeyClient(date=new Date()) {
+  const parts = new Intl.DateTimeFormat('en-CA', {
+    timeZone:'America/Lima', year:'numeric', month:'2-digit', day:'2-digit'
+  }).formatToParts(date).reduce((out, part) => (out[part.type]=part.value, out), {});
+  return `${parts.year}-${parts.month}-${parts.day}`;
+}
+
 function updateTimestamp(ts) {
   if (!ts) return;
-  const d = new Date(ts);
-  const s = isNaN(d) ? ts : d.toLocaleString('es-PE',{timeZone:'America/Lima',hour12:false});
-  document.getElementById('last-ts').textContent = s;
+  document.getElementById('last-ts').textContent = formatDateTimeLima(ts);
 }
 
 // ============================================================
@@ -2008,7 +2026,7 @@ function renderTable() {
   page.forEach(s => {
     const pctClass = s.pct===0?'pct-0':s.pct<30?'pct-low':s.pct<70?'pct-mid':'pct-high';
     const rowClass = s.situacion==='Adicional'?'row-adicional':s.situacion==='Interferencia'?'row-interferencia':s.pct>=100?'row-done':'';
-    const dateStr = s.fecha_update ? new Date(s.fecha_update).toLocaleDateString('es-PE') : '';
+    const dateStr = s.fecha_update ? formatDateTimeLima(s.fecha_update) : '';
     
     const chks = ACTS.map((a, idx) => {
       const done = s[a.key] == 1;
@@ -2137,7 +2155,7 @@ async function toggleAct(id, via, act, el) {
     requestUncheck(`¿Realmente deseas desmarcar “${ACTS[idx].label}” del soporte ${s.id}? El avance se reducirá.`, async () => {
       s[act] = 0;
       recomputePct(s);
-      s.fecha_update = new Date().toISOString();
+      s.fecha_update = formatDateTimeLima(new Date());
       s.actualizado_por = document.getElementById('f-user').value || 'web';
       await saveToServer(s, {[act]:0});
       updateTimestamp(s.fecha_update);
@@ -2148,7 +2166,7 @@ async function toggleAct(id, via, act, el) {
 
   const updates = applySequentialMark(s, idx);
   recomputePct(s);
-  s.fecha_update = new Date().toISOString();
+  s.fecha_update = formatDateTimeLima(new Date());
   s.actualizado_por = document.getElementById('f-user').value || 'web';
   await saveToServer(s, updates);
   updateTimestamp(s.fecha_update);
@@ -2171,7 +2189,7 @@ function toggleActWithVehicle(id, via, act, el) {
     requestUncheck(`¿Realmente deseas desmarcar "${ACTS[idx].label}" del soporte ${s.id}? El avance se reducirá.`, async () => {
       s[act] = 0;
       recomputePct(s);
-      s.fecha_update = new Date().toISOString();
+      s.fecha_update = formatDateTimeLima(new Date());
       s.actualizado_por = document.getElementById('f-user').value || 'web';
       await saveToServer(s, {[act]:0});
       updateTimestamp(s.fecha_update);
@@ -2192,7 +2210,7 @@ function toggleActWithVehicle(id, via, act, el) {
       setVehiclePosition(vehicle, s);
     }
     recomputePct(s);
-    s.fecha_update = new Date().toISOString();
+    s.fecha_update = formatDateTimeLima(new Date());
     s.actualizado_por = document.getElementById('f-user').value || 'web';
     await saveToServer(s, updates);
     updateTimestamp(s.fecha_update);
@@ -2207,7 +2225,7 @@ async function saveComment(id, via, value) {
   const s = allSoportes.find(x=>x.id===id && x.via==via);
   if (!s || s.comentario === value) return;
   s.comentario = value;
-  s.fecha_update = new Date().toISOString();
+  s.fecha_update = formatDateTimeLima(new Date());
   s.actualizado_por = document.getElementById('f-user').value || 'web';
   await saveToServer(s, {comentario: value});
 }
@@ -2319,7 +2337,7 @@ async function saveModal() {
   }
   
   recomputePct(s);
-  s.fecha_update = new Date().toISOString();
+  s.fecha_update = formatDateTimeLima(new Date());
   s.actualizado_por = document.getElementById('f-user').value || 'web';
   
   await saveToServer(s, updates);
@@ -2352,7 +2370,7 @@ async function saveModalWithVehicle() {
     if (comment !== s.comentario) { updates.comentario = comment; s.comentario = comment; }
     if (vehicle) { updates.vehiculo = vehicle; s.vehiculo = vehicle; }
     recomputePct(s);
-    s.fecha_update = new Date().toISOString();
+    s.fecha_update = formatDateTimeLima(new Date());
     s.actualizado_por = document.getElementById('f-user').value || 'web';
     await saveToServer(s, updates);
     closeModal();
@@ -2364,41 +2382,72 @@ async function saveModalWithVehicle() {
   });
 }
 
-// ---- Daily Report ----
-function showDailyReport() {
+// ---- Daily Report (persistente y compartido entre dispositivos) ----
+async function showDailyReport() {
   const today = new Date().toLocaleDateString('es-PE',{timeZone:'America/Lima',year:'numeric',month:'long',day:'numeric'});
   document.getElementById('rpt-date').textContent = today;
-  const total = allSoportes.length||1;
-  const globalPct = allSoportes.reduce((s,x)=>s+Number(x.pct||0),0)/total;
-  const completados = allSoportes.filter(s=>Number(s.pct)>=100).length;
-  const todayStr = new Date().toLocaleDateString('es-PE',{timeZone:'America/Lima'});
-  const todayActualizados = allSoportes.filter(s=>s.fecha_update && new Date(s.fecha_update).toLocaleDateString('es-PE',{timeZone:'America/Lima'})===todayStr).length;
+  document.getElementById('rpt-modal').classList.add('open');
+  document.getElementById('rpt-vehicles-body').innerHTML = '<tr><td colspan="3" style="text-align:center">Consultando Google Sheets…</td></tr>';
+  document.getElementById('rpt-tramos-body').innerHTML = '<tr><td colspan="3" style="text-align:center">Consultando Google Sheets…</td></tr>';
+  document.getElementById('rpt-acts-body').innerHTML = '<tr><td colspan="2" style="text-align:center">Consultando Google Sheets…</td></tr>';
+
+  let events = [];
+  let shared = false;
+  if (!USE_LOCAL_DATA && !usingLocalFallback && APPS_SCRIPT_URL) {
+    try {
+      const response = await fetch(`${APPS_SCRIPT_URL}?action=daily_report&date=${limaDateKeyClient()}`);
+      const data = await response.json();
+      if (!data.ok) throw new Error(data.error || 'No se pudo consultar el reporte');
+      events = data.events || [];
+      shared = true;
+    } catch (error) {
+      console.warn('Reporte compartido no disponible:', error);
+    }
+  }
+  if (!shared) {
+    events = dailySessionLog.map(item => ({
+      ...item, actividades:[item.activity], vehiculo:item.vehicle || '',
+      fecha_update:formatDateTimeLima(item.ts), actualizado_por:'sesión local'
+    }));
+  }
+  renderDailyReport(events, shared);
+}
+
+function renderDailyReport(events, shared) {
+  const total = allSoportes.length || 1;
+  const globalPct = allSoportes.reduce((sum,item)=>sum+Number(item.pct||0),0)/total;
+  const completados = allSoportes.filter(item=>Number(item.pct)>=100).length;
+  const uniqueSupports = new Set(events.map(event=>`${event.id}_${event.via}`));
   document.getElementById('rpt-kpis').innerHTML = `
     <div class="rpt-kpi"><div class="rpt-kpi-n">${globalPct.toFixed(1)}%</div><div class="rpt-kpi-l">Avance global</div></div>
     <div class="rpt-kpi"><div class="rpt-kpi-n">${completados}</div><div class="rpt-kpi-l">Soportes completos</div></div>
-    <div class="rpt-kpi"><div class="rpt-kpi-n">${dailySessionLog.length || todayActualizados}</div><div class="rpt-kpi-l">Actualizados hoy</div></div>`;
-  // By vehicle
+    <div class="rpt-kpi"><div class="rpt-kpi-n">${uniqueSupports.size}</div><div class="rpt-kpi-l">Actualizados hoy · ${shared?'todos los dispositivos':'solo este navegador'}</div></div>`;
+
   const byVehicle = {};
-  dailySessionLog.forEach(l=>{
-    const v=l.vehicle||'Sin asignar';
-    if(!byVehicle[v]) byVehicle[v]={supports:new Set(),acts:0};
-    byVehicle[v].supports.add(l.id+'_'+l.via);
-    byVehicle[v].acts++;
-  });
-  document.getElementById('rpt-vehicles-body').innerHTML = Object.entries(byVehicle).length
-    ? Object.entries(byVehicle).map(([v,d])=>`<tr><td>${VEHICLES[v]?VEHICLES[v].icon+' ':''} ${v}</td><td>${d.supports.size}</td><td>${d.acts}</td></tr>`).join('')
-    : '<tr><td colspan="3" style="color:var(--text3);text-align:center">No se registraron vehículos en esta sesión</td></tr>';
-  // By tramo
   const byTramo = {};
-  dailySessionLog.forEach(l=>{const t=l.tramo||'Sin tramo';if(!byTramo[t]) byTramo[t]={s:new Set(),a:0};byTramo[t].s.add(l.id+'_'+l.via);byTramo[t].a++;});
-  document.getElementById('rpt-tramos-body').innerHTML = Object.entries(byTramo).length
-    ? Object.entries(byTramo).map(([t,d])=>`<tr><td>${t}</td><td>${d.s.size}</td><td>${d.a}</td></tr>`).join('')
-    : '<tr><td colspan="3" style="color:var(--text3);text-align:center">Sin registros de sesión</td></tr>';
-  // By activity
   const byAct = {};
-  dailySessionLog.forEach(l=>{ byAct[l.activity]=(byAct[l.activity]||0)+1; });
-  document.getElementById('rpt-acts-body').innerHTML = ACTS.map(a=>`<tr><td>${a.label}</td><td>${byAct[a.key]||0}</td></tr>`).join('');
-  document.getElementById('rpt-modal').classList.add('open');
+  events.forEach(event => {
+    const activities = Array.isArray(event.actividades)
+      ? event.actividades : String(event.actividades || '').split(',').map(x=>x.trim()).filter(Boolean);
+    const vehicle = event.vehiculo || 'Sin asignar';
+    if (!byVehicle[vehicle]) byVehicle[vehicle] = {supports:new Set(), acts:0};
+    byVehicle[vehicle].supports.add(`${event.id}_${event.via}`);
+    byVehicle[vehicle].acts += activities.length;
+    const tramo = event.tramo || 'Sin tramo';
+    if (!byTramo[tramo]) byTramo[tramo] = {supports:new Set(), acts:0};
+    byTramo[tramo].supports.add(`${event.id}_${event.via}`);
+    byTramo[tramo].acts += activities.length;
+    activities.forEach(activity => { byAct[activity] = (byAct[activity] || 0) + 1; });
+  });
+
+  document.getElementById('rpt-vehicles-body').innerHTML = Object.keys(byVehicle).length
+    ? Object.entries(byVehicle).map(([vehicle,data])=>`<tr><td>${VEHICLES[vehicle]?VEHICLES[vehicle].icon+' ':''}${vehicle}</td><td>${data.supports.size}</td><td>${data.acts}</td></tr>`).join('')
+    : '<tr><td colspan="3" style="color:var(--text3);text-align:center">Sin trabajos registrados hoy</td></tr>';
+  document.getElementById('rpt-tramos-body').innerHTML = Object.keys(byTramo).length
+    ? Object.entries(byTramo).map(([tramo,data])=>`<tr><td>${tramo}</td><td>${data.supports.size}</td><td>${data.acts}</td></tr>`).join('')
+    : '<tr><td colspan="3" style="color:var(--text3);text-align:center">Sin trabajos registrados hoy</td></tr>';
+  document.getElementById('rpt-acts-body').innerHTML = ACTS.map(activity=>
+    `<tr><td>${activity.label}</td><td>${byAct[activity.key] || 0}</td></tr>`).join('');
 }
 
 function closeReport() { document.getElementById('rpt-modal').classList.remove('open'); }
@@ -2456,7 +2505,7 @@ async function bulkMarkModal() {
     if (s) {
       const updates = applySequentialMark(s, actIdx);
       recomputePct(s);
-      s.fecha_update = new Date().toISOString();
+      s.fecha_update = formatDateTimeLima(new Date());
       await saveToServer(s, updates);
     }
   }

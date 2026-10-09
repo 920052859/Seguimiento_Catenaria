@@ -34,3 +34,27 @@ def test_backend_supports_shared_history():
 def test_backend_can_schedule_weekly_snapshots():
     assert "function configurarSnapshotSemanal()" in CODE
     assert ".everyWeeks(1)" in CODE
+
+
+def test_backend_formats_update_date_for_lima():
+    assert "function formatLimaDateTime" in CODE
+    assert "'dd/MM/yyyy HH:mm'" in CODE
+    assert "formatLimaDateTime(now)" in CODE
+
+
+def test_backend_tracks_binary_activity_delta():
+    assert "que_se_actualiza" in CODE
+    assert "function activityDeltaMask" in CODE
+    assert "join('')" in CODE
+
+
+def test_backend_exposes_shared_daily_report():
+    assert "action === 'daily_report'" in CODE
+    assert "function getDailyReport" in CODE
+    assert "America/Lima" in CODE
+    assert "LOG_SHEET" in CODE
+
+
+def test_backend_supports_vehicle_column():
+    assert "vehiculo" in CODE
+    assert "idx.vehiculo" in CODE
