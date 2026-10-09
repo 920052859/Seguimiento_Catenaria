@@ -53,7 +53,7 @@ body{background:var(--bg);color:var(--text);font-family:'Segoe UI',system-ui,san
 .rpt-modal-bg.open{display:flex}
 .rpt-box{background:var(--bg2);border:1px solid var(--border);border-radius:12px;padding:24px 28px;min-width:520px;max-width:700px;max-height:80vh;overflow-y:auto;box-shadow:0 8px 40px rgba(0,0,0,.6)}
 .rpt-box h3{font-size:1rem;font-weight:700;color:var(--accent);margin-bottom:14px;display:flex;align-items:center;gap:8px}
-.rpt-kpi-row{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:16px}
+.rpt-kpi-row{display:grid;grid-template-columns:repeat(auto-fit,minmax(115px,1fr));gap:8px;margin-bottom:16px}
 .rpt-kpi{background:var(--bg3);border-radius:8px;padding:10px 14px;text-align:center}
 .rpt-kpi-n{font-size:1.6rem;font-weight:700;color:var(--accent)}
 .rpt-kpi-l{font-size:.68rem;color:var(--text3);text-transform:uppercase;letter-spacing:.6px;margin-top:2px}
@@ -318,7 +318,7 @@ tbody td{padding:6px 10px;vertical-align:middle;white-space:nowrap}
 
   .rpt-modal-bg,.vehicle-modal-bg,.pwd-modal-bg,.modal-bg,.confirm-bg{padding:12px;align-items:center}
   .rpt-box,.vehicle-box,.pwd-box{min-width:0;width:calc(100% - 24px);max-width:100%;padding:18px 15px}
-  .rpt-kpi-row{grid-template-columns:1fr;gap:6px}
+  .rpt-kpi-row{grid-template-columns:repeat(2,minmax(0,1fr));gap:6px}
   .rpt-kpi{padding:8px}
   .rpt-kpi-n{font-size:1.25rem}
   .modal{width:100%;max-height:88vh;overflow-y:auto;padding:18px 15px}
@@ -2455,12 +2455,17 @@ async function showDailyReport() {
 
   let events = [];
   let shared = false;
+  let progressMetrics = {advance_today_pct:0, advance_7d_pct:0};
   if (!USE_LOCAL_DATA && !usingLocalFallback && APPS_SCRIPT_URL) {
     try {
       const response = await fetch(`${APPS_SCRIPT_URL}?action=daily_report&date=${limaDateKeyClient()}`);
       const data = await response.json();
       if (!data.ok) throw new Error(data.error || 'No se pudo consultar el reporte');
       events = data.events || [];
+      progressMetrics = {
+        advance_today_pct:Number(data.advance_today_pct || 0),
+        advance_7d_pct:Number(data.advance_7d_pct || 0)
+      };
       shared = true;
     } catch (error) {
       console.warn('Reporte compartido no disponible:', error);
@@ -2471,17 +2476,40 @@ async function showDailyReport() {
       ...item, actividades:[item.activity], vehiculo:item.vehicle || '',
       fecha_update:formatDateTimeLima(item.ts), actualizado_por:'sesión local'
     }));
+    const localAdvance = calculateClientPeriodProgress(events);
+    progressMetrics = {advance_today_pct:localAdvance, advance_7d_pct:localAdvance};
   }
-  renderDailyReport(events, shared);
+  renderDailyReport(events, shared, progressMetrics);
 }
 
-function renderDailyReport(events, shared) {
+function calculateClientPeriodProgress(events) {
+  const total = allSoportes.length || 1;
+  const supportPoints = events.reduce((sum,event) => {
+    const activities = Array.isArray(event.actividades) ? event.actividades : [event.activity].filter(Boolean);
+    return sum + activities.reduce((activitySum,key) => {
+      const activity = ACTS.find(item => item.key === key);
+      return activitySum + (activity ? activity.weight * 100 : 0);
+    }, 0);
+  }, 0);
+  return supportPoints / total;
+}
+
+function formatProgressPct(value) {
+  const number = Number(value || 0);
+  if (number !== 0 && Math.abs(number) < 0.001) return (number < 0 ? '-<' : '<') + '0.001%';
+  const sign = number > 0 ? '+' : '';
+  return `${sign}${number.toFixed(3)}%`;
+}
+
+function renderDailyReport(events, shared, metrics={advance_today_pct:0,advance_7d_pct:0}) {
   const total = allSoportes.length || 1;
   const globalPct = allSoportes.reduce((sum,item)=>sum+Number(item.pct||0),0)/total;
   const completados = allSoportes.filter(item=>Number(item.pct)>=100).length;
   const uniqueSupports = new Set(events.map(event=>`${event.id}_${event.via}`));
   document.getElementById('rpt-kpis').innerHTML = `
-    <div class="rpt-kpi"><div class="rpt-kpi-n">${globalPct.toFixed(1)}%</div><div class="rpt-kpi-l">Avance global</div></div>
+    <div class="rpt-kpi" title="Avance acumulado ponderado de los ${total} soportes"><div class="rpt-kpi-n">${globalPct.toFixed(2)}%</div><div class="rpt-kpi-l">Avance global acumulado</div></div>
+    <div class="rpt-kpi" title="Variación ponderada registrada durante el día"><div class="rpt-kpi-n">${formatProgressPct(metrics.advance_today_pct)}</div><div class="rpt-kpi-l">Avance de hoy</div></div>
+    <div class="rpt-kpi" title="Variación ponderada de hoy y los 6 días anteriores"><div class="rpt-kpi-n">${formatProgressPct(metrics.advance_7d_pct)}</div><div class="rpt-kpi-l">Últimos 7 días</div></div>
     <div class="rpt-kpi"><div class="rpt-kpi-n">${completados}</div><div class="rpt-kpi-l">Soportes completos</div></div>
     <div class="rpt-kpi"><div class="rpt-kpi-n">${uniqueSupports.size}</div><div class="rpt-kpi-l">Actualizados hoy · ${shared?'todos los dispositivos':'solo este navegador'}</div></div>`;
 

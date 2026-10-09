@@ -237,6 +237,11 @@ function updateSoporte(body) {
     if (rowNumber < 0) return {ok:false, error:'Soporte no encontrado: ' + soporteId};
 
     const previousActivityValues = ACTIVITIES.map(a => Number(values[idx[a]]) === 1 ? 1 : 0);
+    let previousPct = 0;
+    ACTIVITIES.forEach((activity, index) => {
+      previousPct += WEIGHTS[activity] * (previousActivityValues[index] === 1 ? 1 : 0);
+    });
+    previousPct = Math.round(previousPct * 1000) / 10;
 
     // Secuencia obligatoria: al completar una etapa, completa todas las previas.
     // No permite borrar una etapa si existe alguna posterior terminada.
@@ -263,6 +268,7 @@ function updateSoporte(body) {
     let pct = 0;
     ACTIVITIES.forEach(a => { pct += WEIGHTS[a] * (Number(values[idx[a]]) === 1 ? 1 : 0); });
     const pctValue = Math.round(pct*1000)/10;
+    const deltaPct = Math.round((pctValue - previousPct) * 10) / 10;
     ws.getRange(rowNumber, idx.pct+1).setValue(pctValue);
     if (body.comentario !== undefined) ws.getRange(rowNumber, idx.comentario+1).setValue(body.comentario);
     ws.getRange(rowNumber, idx.fecha_update+1).setValue(formattedNow);
@@ -280,11 +286,13 @@ function updateSoporte(body) {
       vehiculo: body.vehiculo || values[idx.vehiculo] || '',
       comentario: body.comentario || '',
       usuario: body.actualizado_por || 'web',
-      pct: pctValue
+      pct: pctValue,
+      delta_pct: deltaPct
     }, ss);
     updateLastUpdate(formattedNow, ss);
     SpreadsheetApp.flush();
-    return {ok:true, id:soporteId, pct:pctValue, timestamp:formattedNow, que_se_actualiza:deltaMask};
+    return {ok:true, id:soporteId, pct:pctValue, delta_pct:deltaPct,
+      timestamp:formattedNow, que_se_actualiza:deltaMask};
   } finally {
     lock.releaseLock();
   }
@@ -333,7 +341,7 @@ function logChange(id, via, body, ts, ss) {
 // ============================================================
 function dailyLogHeaders() {
   return ['fecha_update','id','via','tramo','que_se_actualiza','actividades',
-    'vehiculo','comentario','actualizado_por','pct'];
+    'vehiculo','comentario','actualizado_por','pct','delta_pct'];
 }
 
 function ensureDailyLogSheet(ss) {
@@ -343,6 +351,15 @@ function ensureDailyLogSheet(ss) {
   if (ws.getLastRow() === 0) {
     ws.getRange(1, 1, 1, headers.length).setValues([headers]);
     ws.setFrozenRows(1);
+  } else {
+    const current = ws.getRange(1, 1, 1, ws.getLastColumn()).getValues()[0]
+      .map(h => String(h).trim());
+    headers.forEach(header => {
+      if (current.indexOf(header) < 0) {
+        ws.getRange(1, ws.getLastColumn() + 1).setValue(header);
+        current.push(header);
+      }
+    });
   }
   ws.getRange('A:A').setNumberFormat('@');
   ws.getRange('E:E').setNumberFormat('@');
@@ -360,7 +377,7 @@ function logDailyChange(event, ss) {
   ws.appendRow([
     event.timestamp, event.id, event.via, event.tramo, String(event.mask),
     activities.join(', '), event.vehiculo, event.comentario,
-    event.usuario, event.pct
+    event.usuario, event.pct, event.delta_pct
   ]);
   const row = ws.getLastRow();
   ws.getRange(row, 1).setNumberFormat('@');
@@ -376,25 +393,54 @@ function dateKeyFromStoredValue(value) {
   return isNaN(parsed.getTime()) ? '' : limaDateKey(parsed);
 }
 
+function calculatePeriodProgress(events, totalSupports) {
+  if (!totalSupports) return 0;
+  const supportPoints = events.reduce((sum, event) => {
+    if (event.delta_pct !== '' && event.delta_pct !== null && event.delta_pct !== undefined) {
+      return sum + (Number(event.delta_pct) || 0);
+    }
+    const inferred = activitiesFromMask(event.que_se_actualiza)
+      .reduce((activitySum, activity) => activitySum + WEIGHTS[activity] * 100, 0);
+    return sum + inferred;
+  }, 0);
+  return Math.round((supportPoints / totalSupports) * 10000) / 10000;
+}
+
 function getDailyReport(requestedDate) {
   const ss = getSpreadsheet();
   const ws = ensureDailyLogSheet(ss);
   const dateKey = /^\d{4}-\d{2}-\d{2}$/.test(String(requestedDate || ''))
     ? String(requestedDate) : limaDateKey(new Date());
+  const endDate = new Date(dateKey + 'T12:00:00-05:00');
+  const startDate = new Date(endDate.getTime());
+  startDate.setDate(startDate.getDate() - 6);
+  const startKey = limaDateKey(startDate);
   const data = ws.getDataRange().getValues();
-  if (data.length < 2) return {ok:true, date:dateKey, events:[]};
-  const headers = data[0].map(h => String(h).trim());
-  const events = data.slice(1).filter(row => dateKeyFromStoredValue(row[0]) === dateKey)
-    .map(row => {
-      const event = {};
-      headers.forEach((header, index) => { event[header] = row[index]; });
-      event.fecha_update = event.fecha_update instanceof Date
-        ? formatLimaDateTime(event.fecha_update) : String(event.fecha_update || '');
-      event.que_se_actualiza = String(event.que_se_actualiza || '').padStart(7, '0');
-      event.actividades = activitiesFromMask(event.que_se_actualiza);
-      return event;
-    });
-  return {ok:true, date:dateKey, events:events};
+  const headers = data.length ? data[0].map(h => String(h).trim()) : dailyLogHeaders();
+  const periodEvents = data.slice(1).filter(row => {
+    const key = dateKeyFromStoredValue(row[0]);
+    return key >= startKey && key <= dateKey;
+  }).map(row => {
+    const event = {};
+    headers.forEach((header, index) => { event[header] = row[index]; });
+    event.fecha_update = event.fecha_update instanceof Date
+      ? formatLimaDateTime(event.fecha_update) : String(event.fecha_update || '');
+    event.date_key = dateKeyFromStoredValue(row[0]);
+    event.que_se_actualiza = String(event.que_se_actualiza || '').padStart(7, '0');
+    event.actividades = activitiesFromMask(event.que_se_actualiza);
+    return event;
+  });
+  const todayEvents = periodEvents.filter(event => event.date_key === dateKey);
+  const totalSupports = Math.max(1, getAllSoportes().soportes.length);
+  return {
+    ok:true,
+    date:dateKey,
+    period_start:startKey,
+    events:todayEvents,
+    advance_today_pct:calculatePeriodProgress(todayEvents, totalSupports),
+    advance_7d_pct:calculatePeriodProgress(periodEvents, totalSupports),
+    total_soportes:totalSupports
+  };
 }
 
 // ============================================================

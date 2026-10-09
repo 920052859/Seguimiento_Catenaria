@@ -63,4 +63,10 @@ print("PASS 13 - Shared daily report")
 assert "function formatDateTimeLima" in s, "FAIL DD/MM/YYYY HH:MM formatter"
 print("PASS 14 - Date format DD/MM/YYYY HH:MM")
 
-print(f"\n14/14 PASS - {len(s):,} chars")
+# 15. Daily and rolling 7-day progress
+assert "advance_today_pct" in s, "FAIL today's progress"
+assert "advance_7d_pct" in s, "FAIL 7-day progress"
+assert "Avance de hoy" in s and "Últimos 7 días" in s, "FAIL report progress labels"
+print("PASS 15 - Daily and 7-day progress")
+
+print(f"\n15/15 PASS - {len(s):,} chars")

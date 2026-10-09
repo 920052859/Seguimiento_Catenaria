@@ -55,6 +55,10 @@ def test_backend_exposes_shared_daily_report():
     assert "function getDailyReport" in CODE
     assert "America/Lima" in CODE
     assert "LOG_SHEET" in CODE
+    assert "advance_today_pct" in CODE
+    assert "advance_7d_pct" in CODE
+    assert "function calculatePeriodProgress" in CODE
+    assert "delta_pct" in CODE
 
 
 def test_backend_supports_vehicle_column():
