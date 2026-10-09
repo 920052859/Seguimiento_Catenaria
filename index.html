@@ -110,6 +110,30 @@ tbody td{padding:6px 10px;vertical-align:middle;white-space:nowrap}
 .chk.done{border-color:var(--green);background:rgba(34,197,94,.15)}
 .chk.done::after{content:'✓';color:var(--green);font-size:.7rem;font-weight:700}
 .chk.na{border-color:var(--text3);background:var(--bg4);opacity:.5;cursor:not-allowed}
+.chk.locked{border-color:var(--text3);background:var(--bg4);opacity:.4;cursor:not-allowed;position:relative}
+.chk.locked::after{content:'🔒';font-size:.5rem;color:var(--text3);position:absolute;bottom:-1px;right:-1px}
+/* Activity toggle pills in table */
+.act-pill{display:inline-flex;align-items:center;gap:4px;padding:3px 7px;border-radius:12px;font-size:.68rem;font-weight:600;cursor:pointer;border:1.5px solid;transition:.15s;white-space:nowrap;user-select:none}
+.act-pill:hover:not(.locked-pill){filter:brightness(1.2)}
+.act-pill.locked-pill{opacity:.4;cursor:not-allowed;filter:none}
+.act-pill.pending{background:transparent;border-color:var(--border);color:var(--text3)}
+.act-pill.done-pill{border-color:transparent}
+/* Map tooltip */
+#map-tooltip{position:fixed;background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:10px 14px;font-size:.75rem;pointer-events:none;z-index:150;display:none;min-width:200px;box-shadow:0 8px 24px rgba(0,0,0,.5)}
+#map-tooltip .tt-id{font-size:.85rem;font-weight:700;color:var(--accent);margin-bottom:4px}
+#map-tooltip .tt-row{display:flex;justify-content:space-between;gap:12px;color:var(--text2);margin:2px 0}
+#map-tooltip .tt-row b{color:var(--text)}
+#map-tooltip .tt-acts{display:flex;flex-wrap:wrap;gap:3px;margin-top:6px}
+#map-tooltip .tt-act{padding:2px 5px;border-radius:3px;font-size:.62rem;font-weight:600}
+#map-tooltip .tt-act.ok{background:rgba(34,197,94,.2);color:var(--green)}
+#map-tooltip .tt-act.no{background:rgba(100,116,139,.15);color:var(--text3)}
+/* Confirm dialog */
+.confirm-bg{display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:250;align-items:center;justify-content:center}
+.confirm-bg.open{display:flex}
+.confirm-box{background:var(--bg2);border:1px solid var(--red);border-radius:12px;padding:22px 26px;max-width:380px;text-align:center;box-shadow:0 8px 32px rgba(0,0,0,.5)}
+.confirm-box h3{color:var(--red);margin-bottom:8px;font-size:.95rem}
+.confirm-box p{color:var(--text2);font-size:.82rem;margin-bottom:16px;line-height:1.5}
+.confirm-box .cf-btns{display:flex;gap:10px;justify-content:center}
 .pct-cell{font-weight:700;font-size:.8rem}
 .pct-0{color:var(--text3)}
 .pct-low{color:var(--red)}
@@ -308,13 +332,13 @@ tbody td{padding:6px 10px;vertical-align:middle;white-space:nowrap}
               <th>Tramo</th>
               <th>Km</th>
               <th>Tipo</th>
-              <th title="Perforación 10%">Perf</th>
-              <th title="Fijación 20%">Fij</th>
-              <th title="Soporte 20%">Sop</th>
-              <th title="Ménsula 10%">Men</th>
-              <th title="Aislador 10%">Ais</th>
-              <th title="Perfil 20%">Per</th>
-              <th title="Hilo 10%">Hilo</th>
+              <th title="Perforación 10%">Perforación</th>
+              <th title="Fijación 20%">Fijación</th>
+              <th title="Soporte 20%">Soporte</th>
+              <th title="Ménsula 10%">Ménsula</th>
+              <th title="Aislador 10%">Aislador</th>
+              <th title="Perfil 20%">Perfil</th>
+              <th title="Hilo de contacto 10%">Hilo de contacto</th>
               <th>%</th>
               <th>Comentario</th>
               <th>Actualizado</th>
@@ -356,13 +380,35 @@ tbody td{padding:6px 10px;vertical-align:middle;white-space:nowrap}
 <!-- TOAST -->
 <div class="toast" id="toast"></div>
 
+<!-- MAP TOOLTIP -->
+<div id="map-tooltip">
+  <div class="tt-id" id="tt-id"></div>
+  <div class="tt-row"><span>Km</span><b id="tt-km"></b></div>
+  <div class="tt-row"><span>Tramo</span><b id="tt-tramo"></b></div>
+  <div class="tt-row"><span>Tipo</span><b id="tt-tipo"></b></div>
+  <div class="tt-row"><span>Estado</span><b id="tt-sit"></b></div>
+  <div class="tt-row"><span>Avance</span><b id="tt-pct"></b></div>
+  <div class="tt-acts" id="tt-acts"></div>
+</div>
+
+<!-- CONFIRM DIALOG -->
+<div class="confirm-bg" id="confirm-bg">
+  <div class="confirm-box">
+    <h3>⚠ Confirmar desmarcar</h3>
+    <p id="confirm-msg"></p>
+    <div class="cf-btns">
+      <button class="btn btn-secondary" onclick="confirmCancel()">Cancelar</button>
+      <button class="btn" style="background:var(--red);color:#fff" onclick="confirmOk()">Sí, desmarcar</button>
+    </div>
+  </div>
+</div>
+
 <script>
 // ============================================================
 //  CONFIG - REEMPLAZAR CON TU URL DE APPS SCRIPT
 // ============================================================
-const APPS_SCRIPT_URL = '15XIag7BpBdtvpsybofyWOqCdkcFq4jupdJQoG7ZjulyEW8I9OqMCfYqb';
-// Si todavia no tienes Apps Script, pone en modo local:
-const USE_LOCAL_DATA = false; // cambiar a false cuando tengas el Apps Script
+const APPS_SCRIPT_URL = ''; // pegar aqui la URL completa que termina en /exec
+const USE_LOCAL_DATA = false; // si la API falla, se activa automaticamente soportes.json
 
 // ============================================================
 //  CONSTANTES
@@ -410,6 +456,8 @@ let dragStart = {x:0,y:0};
 let modalSoporte = null;
 let modalVia = null;
 let currentTab = 'map';
+let pendingConfirmation = null;
+let usingLocalFallback = USE_LOCAL_DATA;
 
 // ============================================================
 //  INIT
@@ -429,27 +477,39 @@ document.addEventListener('DOMContentLoaded', async () => {
 //  DATA LOADING
 // ============================================================
 async function loadData() {
-  if (USE_LOCAL_DATA) {
-    // Load from embedded JSON (generated by Python script)
+  async function loadLocalFallback() {
     try {
       const resp = await fetch('./soportes.json');
-      if (resp.ok) {
-        const data = await resp.json();
-        allSoportes = data.soportes;
-        if (data.last_update) updateTimestamp(data.last_update);
-      }
+      if (!resp.ok) throw new Error('soportes.json no disponible');
+      const data = await resp.json();
+      allSoportes = data.soportes || [];
+      usingLocalFallback = true;
+      applyLocalStorage();
+      if (data.last_update) updateTimestamp(data.last_update);
     } catch(e) {
-      // Fallback: use sample data for demo
       allSoportes = generateSampleData();
+      usingLocalFallback = true;
     }
+  }
+
+  if (USE_LOCAL_DATA) {
+    await loadLocalFallback();
   } else {
     try {
-      const resp = await fetch(APPS_SCRIPT_URL + '?action=all');
+      if (!/^https:\/\/script\.google\.com\/.*\/exec(?:\?|$)/.test(APPS_SCRIPT_URL)) {
+        throw new Error('URL de Apps Script incompleta');
+      }
+      const separator = APPS_SCRIPT_URL.includes('?') ? '&' : '?';
+      const resp = await fetch(APPS_SCRIPT_URL + separator + 'action=all');
+      if (!resp.ok) throw new Error('HTTP '+resp.status);
       const data = await resp.json();
-      allSoportes = data.soportes;
+      if (data.ok === false) throw new Error(data.error || 'Error del backend');
+      allSoportes = data.soportes || [];
+      usingLocalFallback = false;
       updateTimestamp(data.last_update);
     } catch(e) {
-      showToast('Error cargando datos del servidor', true);
+      await loadLocalFallback();
+      showToast('Apps Script no conectado: usando respaldo local', true);
     }
   }
   
@@ -857,6 +917,49 @@ function zoomIn()  { mapScale = Math.min(8, mapScale*1.5); renderMap(); }
 function zoomOut() { mapScale = Math.max(1, mapScale/1.5); if(mapScale<=1) mapOffsetX=0; renderMap(); }
 function resetZoom(){ mapScale=1; mapOffsetX=0; mapOffsetY=0; renderMap(); }
 
+function findMapSoporteAt(clientX, clientY, radius=14) {
+  const rect = canvas.getBoundingClientRect();
+  const cx = (clientX - rect.left) * (canvas.width / rect.width);
+  const cy = (clientY - rect.top) * (canvas.height / rect.height);
+  const src = filtered.length > 0 ? filtered : allSoportes;
+  const validKm = src.map(s=>Number(s.km)||0).filter(k=>k>0);
+  if (!validKm.length) return null;
+  const kmMin = Math.min(...validKm);
+  const kmMax = Math.max(...validKm);
+  const kmRange = kmMax - kmMin || 1;
+  const margin = 60;
+  const usableW = (canvas.width - margin*2) * mapScale;
+  const via1Y = canvas.height * 0.32 + 10;
+  const via2Y = canvas.height * 0.68 - 10;
+  let closest = null, minDist = radius;
+  src.forEach(s => {
+    if (!s.km) return;
+    const x = margin + ((s.km-kmMin)/kmRange)*usableW + mapOffsetX;
+    const y = s.via==1 ? via1Y : via2Y;
+    const dist = Math.hypot(cx-x, cy-y);
+    if (dist < minDist) { minDist=dist; closest=s; }
+  });
+  return closest;
+}
+
+function showMapTooltip(s, clientX, clientY) {
+  const tt = document.getElementById('map-tooltip');
+  if (!s) { tt.style.display='none'; return; }
+  document.getElementById('tt-id').textContent = `${s.id} · Vía ${s.via}`;
+  document.getElementById('tt-km').textContent = s.km ? Number(s.km).toFixed(2) : '-';
+  document.getElementById('tt-tramo').textContent = s.tramo || '-';
+  document.getElementById('tt-tipo').textContent = s.tipo || '-';
+  document.getElementById('tt-sit').textContent = s.situacion || 'Normal';
+  document.getElementById('tt-pct').textContent = `${s.pct}%`;
+  document.getElementById('tt-acts').innerHTML = ACTS.map(a =>
+    `<span class="tt-act ${s[a.key]==1?'ok':'no'}">${s[a.key]==1?'✓':'○'} ${a.label}</span>`
+  ).join('');
+  tt.style.display='block';
+  const left = Math.min(window.innerWidth-225, clientX+14);
+  const top = Math.min(window.innerHeight-220, clientY+14);
+  tt.style.left=left+'px'; tt.style.top=top+'px';
+}
+
 function setupMapEvents() {
   canvas.addEventListener('wheel', e => {
     e.preventDefault();
@@ -869,16 +972,25 @@ function setupMapEvents() {
     canvas.style.cursor = 'grabbing';
   });
   canvas.addEventListener('mousemove', e => {
-    if (!isDragging) return;
-    mapOffsetX = e.clientX - dragStart.x;
-    mapOffsetX = Math.min(0, Math.max(-(canvas.width*(mapScale-1)), mapOffsetX));
-    renderMap();
+    if (isDragging) {
+      document.getElementById('map-tooltip').style.display='none';
+      mapOffsetX = e.clientX - dragStart.x;
+      mapOffsetX = Math.min(0, Math.max(-(canvas.width*(mapScale-1)), mapOffsetX));
+      renderMap();
+      return;
+    }
+    const hovered = findMapSoporteAt(e.clientX, e.clientY, 16);
+    canvas.style.cursor = hovered ? 'pointer' : 'grab';
+    showMapTooltip(hovered, e.clientX, e.clientY);
   });
   canvas.addEventListener('mouseup', e => {
     isDragging = false;
     canvas.style.cursor = 'grab';
   });
-  canvas.addEventListener('mouseleave', () => { isDragging = false; });
+  canvas.addEventListener('mouseleave', () => {
+    isDragging = false;
+    document.getElementById('map-tooltip').style.display='none';
+  });
   
   // Touch
   let lastTouch = null;
@@ -901,33 +1013,7 @@ function setupMapEvents() {
   // Click to open soporte detail
   canvas.addEventListener('click', e => {
     if (Math.abs(e.clientX - (dragStart.x + mapOffsetX)) > 5) return; // was drag
-    const rect = canvas.getBoundingClientRect();
-    const cx = e.clientX - rect.left;
-    const cy = e.clientY - rect.top;
-    
-    const W = canvas.width, H = canvas.height;
-    const src = filtered.length > 0 ? filtered : allSoportes;
-    const kmMin = Math.min(...src.map(s=>s.km||0).filter(k=>k>0));
-    const kmMax = Math.max(...src.map(s=>s.km||0).filter(k=>k>0));
-    const kmRange = kmMax - kmMin || 1;
-    const MARGIN = 60;
-    const USABLE_W = (W - MARGIN*2) * mapScale;
-    const VIA1_Y = H * 0.32;
-    const VIA2_Y = H * 0.68;
-    
-    function kmToX(km) {
-      return MARGIN + ((km - kmMin) / kmRange) * USABLE_W + mapOffsetX;
-    }
-    
-    let closest = null, minDist = 12;
-    src.forEach(s => {
-      if (!s.km) return;
-      const x = kmToX(s.km);
-      const y = s.via===1 ? VIA1_Y + 10 : VIA2_Y - 10;
-      const dist = Math.sqrt((cx-x)**2 + (cy-y)**2);
-      if (dist < minDist) { minDist=dist; closest=s; }
-    });
-    
+    const closest = findMapSoporteAt(e.clientX, e.clientY, 16);
     if (closest) openModal(closest.id, closest.via);
   });
   
@@ -951,12 +1037,19 @@ function renderTable() {
     const rowClass = s.situacion==='Adicional'?'row-adicional':s.situacion==='Interferencia'?'row-interferencia':s.pct>=100?'row-done':'';
     const dateStr = s.fecha_update ? new Date(s.fecha_update).toLocaleDateString('es-PE') : '';
     
-    const chks = ACTS.map(a => `
-      <td class="chk-wrap">
-        <div class="chk ${s[a.key]==1?'done':''}" 
+    const chks = ACTS.map((a, idx) => {
+      const done = s[a.key] == 1;
+      const locked = done && laterActivityIsDone(s, idx);
+      const style = done ? `background:${a.color}22;border-color:${a.color};color:${a.color}` : '';
+      return `<td class="chk-wrap">
+        <div class="act-pill ${done?'done-pill':'pending'} ${locked?'locked-pill':''}"
+             style="${style}"
              onclick="toggleAct('${s.id}',${s.via},'${a.key}',this)"
-             title="${a.label}"></div>
-      </td>`).join('');
+             title="${locked ? a.label+' bloqueada: existe una actividad posterior completada' : a.label+' · peso '+Math.round(a.weight*100)+'%'}">
+          ${locked?'🔒':done?'✓':'○'} ${a.label}
+        </div>
+      </td>`;
+    }).join('');
     
     tbody.innerHTML += `
       <tr class="${rowClass}" data-id="${s.id}" data-via="${s.via}">
@@ -1011,37 +1104,81 @@ function toggleAll(cb) {
 // ============================================================
 //  INLINE ACTIONS
 // ============================================================
-async function toggleAct(id, via, act, el) {
-  // Find soporte in memory
-  const s = allSoportes.find(x=>x.id===id && x.via==via);
-  if (!s) return;
-  
-  const newVal = s[act]==1 ? 0 : 1;
-  s[act] = newVal;
-  
-  // If marking fijacion, also mark perforacion
-  if (act === 'fijacion' && newVal === 1) s['perforacion'] = 1;
-  
-  // Recompute pct
-  s.pct = Math.round(ACTS.reduce((sum,a)=>sum + a.weight*(s[a.key]||0),0)*1000)/10;
-  s.fecha_update = new Date().toISOString();
-  s.actualizado_por = document.getElementById('f-user').value || 'web';
-  
-  el.classList.toggle('done', newVal===1);
-  
-  // Update pct in row
-  const row = el.closest('tr');
-  if (row) {
-    const pctCell = row.querySelector('.pct-cell');
-    if (pctCell) {
-      pctCell.textContent = s.pct+'%';
-      pctCell.className = 'pct-cell '+(s.pct===0?'pct-0':s.pct<30?'pct-low':s.pct<70?'pct-mid':'pct-high');
+function laterActivityIsDone(s, index) {
+  return ACTS.slice(index + 1).some(a => s[a.key] == 1);
+}
+
+function applySequentialMark(s, index) {
+  const updates = {};
+  for (let i = 0; i <= index; i++) {
+    if (s[ACTS[i].key] != 1) {
+      s[ACTS[i].key] = 1;
+      updates[ACTS[i].key] = 1;
     }
   }
-  
-  await saveToServer(s, {[act]: newVal});
-  updateTimestamp(s.fecha_update);
+  return updates;
+}
+
+function recomputePct(s) {
+  s.pct = Math.round(ACTS.reduce((sum,a)=>sum + a.weight*(s[a.key]||0),0)*1000)/10;
+}
+
+function refreshDashboard() {
+  renderTable();
   renderKPIs();
+  renderGantt();
+  renderCrono();
+  renderMap();
+}
+
+function requestUncheck(message, callback) {
+  pendingConfirmation = callback;
+  document.getElementById('confirm-msg').textContent = message;
+  document.getElementById('confirm-bg').classList.add('open');
+}
+
+function confirmCancel() {
+  pendingConfirmation = null;
+  document.getElementById('confirm-bg').classList.remove('open');
+}
+
+function confirmOk() {
+  const callback = pendingConfirmation;
+  pendingConfirmation = null;
+  document.getElementById('confirm-bg').classList.remove('open');
+  if (callback) callback();
+}
+
+async function toggleAct(id, via, act, el) {
+  const s = allSoportes.find(x=>x.id===id && x.via==via);
+  if (!s) return;
+  const idx = ACTS.findIndex(a=>a.key===act);
+  if (idx < 0) return;
+
+  if (s[act] == 1) {
+    if (laterActivityIsDone(s, idx)) {
+      showToast(`${ACTS[idx].label} está bloqueada porque existe una actividad posterior completada`, true);
+      return;
+    }
+    requestUncheck(`¿Realmente deseas desmarcar “${ACTS[idx].label}” del soporte ${s.id}? El avance se reducirá.`, async () => {
+      s[act] = 0;
+      recomputePct(s);
+      s.fecha_update = new Date().toISOString();
+      s.actualizado_por = document.getElementById('f-user').value || 'web';
+      await saveToServer(s, {[act]:0});
+      updateTimestamp(s.fecha_update);
+      refreshDashboard();
+    });
+    return;
+  }
+
+  const updates = applySequentialMark(s, idx);
+  recomputePct(s);
+  s.fecha_update = new Date().toISOString();
+  s.actualizado_por = document.getElementById('f-user').value || 'web';
+  await saveToServer(s, updates);
+  updateTimestamp(s.fecha_update);
+  refreshDashboard();
 }
 
 async function saveComment(id, via, value) {
@@ -1072,15 +1209,16 @@ function openModal(id, via) {
   
   const actsContainer = document.getElementById('modal-acts');
   actsContainer.innerHTML = '';
-  ACTS.forEach(a => {
+  ACTS.forEach((a, idx) => {
     const done = s[a.key]==1;
+    const locked = done && laterActivityIsDone(s, idx);
     actsContainer.innerHTML += `
-      <div class="act-item ${done?'done':''}" onclick="toggleModalAct('${a.key}',this)" data-act="${a.key}">
+      <div class="act-item ${done?'done':''} ${locked?'locked-pill':''}" onclick="toggleModalAct('${a.key}',this)" data-act="${a.key}" title="${locked?'Bloqueada por actividad posterior completada':''}">
         <div class="act-icon" style="background:${done?a.color:'transparent'};border-color:${a.color};color:${a.color}">
           ${done?'':''}
         </div>
         <div class="act-text">
-          <div class="act-name">${a.label}</div>
+          <div class="act-name">${locked?'🔒 ':''}${a.label}</div>
           <div class="act-weight">Peso: ${Math.round(a.weight*100)}%</div>
         </div>
       </div>`;
@@ -1091,25 +1229,44 @@ function openModal(id, via) {
 }
 
 function toggleModalAct(act, el) {
-  el.classList.toggle('done');
-  const icon = el.querySelector('.act-icon');
-  const a = ACTS.find(x=>x.key===act);
+  const idx = ACTS.findIndex(a=>a.key===act);
+  if (idx < 0) return;
+  const modalItems = [...document.querySelectorAll('#modal-acts .act-item')];
+
   if (el.classList.contains('done')) {
-    icon.style.background = a.color;
-    icon.style.borderColor = a.color;
-    icon.innerHTML = '';
-  } else {
-    icon.style.background = 'transparent';
-    icon.style.borderColor = a.color;
-    icon.innerHTML = '';
-  }
-  // Auto-check perforacion if fijacion is checked
-  if (act === 'fijacion' && el.classList.contains('done')) {
-    const perfEl = document.querySelector('[data-act="perforacion"]');
-    if (perfEl && !perfEl.classList.contains('done')) {
-      toggleModalAct('perforacion', perfEl);
+    const laterDone = modalItems.slice(idx+1).some(item=>item.classList.contains('done'));
+    if (laterDone) {
+      showToast(`${ACTS[idx].label} está bloqueada por una actividad posterior`, true);
+      return;
     }
+    requestUncheck(`¿Realmente deseas desmarcar “${ACTS[idx].label}” del soporte ${modalSoporte.id}?`, () => {
+      setModalActivityState(el, ACTS[idx], false);
+    });
+    return;
   }
+
+  // La secuencia es acumulativa: una etapa implica todas las anteriores.
+  for (let i=0; i<=idx; i++) setModalActivityState(modalItems[i], ACTS[i], true);
+  updateModalLocks();
+}
+
+function setModalActivityState(el, act, done) {
+  el.classList.toggle('done', done);
+  const icon = el.querySelector('.act-icon');
+  icon.style.background = done ? act.color : 'transparent';
+  icon.style.borderColor = act.color;
+  icon.innerHTML = '';
+  updateModalLocks();
+}
+
+function updateModalLocks() {
+  const items = [...document.querySelectorAll('#modal-acts .act-item')];
+  items.forEach((item, idx) => {
+    const locked = item.classList.contains('done') && items.slice(idx+1).some(x=>x.classList.contains('done'));
+    item.classList.toggle('locked-pill', locked);
+    const name = item.querySelector('.act-name');
+    if (name) name.textContent = (locked?'🔒 ':'') + ACTS[idx].label;
+  });
 }
 
 function closeModal() {
@@ -1137,16 +1294,13 @@ async function saveModal() {
     s.comentario = comment;
   }
   
-  s.pct = Math.round(ACTS.reduce((sum,a)=>sum+a.weight*(s[a.key]||0),0)*1000)/10;
+  recomputePct(s);
   s.fecha_update = new Date().toISOString();
   s.actualizado_por = document.getElementById('f-user').value || 'web';
   
   await saveToServer(s, updates);
   closeModal();
-  renderTable();
-  renderKPIs();
-  renderGantt();
-  renderMap();
+  refreshDashboard();
   updateTimestamp(s.fecha_update);
   showToast('✓ Guardado correctamente');
 }
@@ -1155,7 +1309,7 @@ async function saveModal() {
 //  SERVER SYNC
 // ============================================================
 async function saveToServer(s, changes) {
-  if (USE_LOCAL_DATA) {
+  if (USE_LOCAL_DATA || usingLocalFallback) {
     // Save to localStorage as backup
     localStorage.setItem('cat_'+s.id+'_'+s.via, JSON.stringify(s));
     showToast('✓ '+s.id+' actualizado');
@@ -1186,22 +1340,23 @@ async function saveToServer(s, changes) {
 // ============================================================
 //  BULK MARK
 // ============================================================
-function bulkMarkModal() {
+async function bulkMarkModal() {
   const selected = [...document.querySelectorAll('.row-sel:checked')];
   if (!selected.length) { showToast('Selecciona soportes primero', true); return; }
   // Simple prompt - mark all selected with a specific activity
   const act = prompt('Actividad a marcar (perforacion/fijacion/soporte/mensula/aislador/perfil/hilo):');
-  if (!ACTS.find(a=>a.key===act)) return;
-  selected.forEach(cb => {
+  const actIdx = ACTS.findIndex(a=>a.key===act);
+  if (actIdx < 0) return;
+  for (const cb of selected) {
     const s = allSoportes.find(x=>x.id===cb.dataset.id && x.via==cb.dataset.via);
     if (s) {
-      s[act] = 1;
-      s.pct = Math.round(ACTS.reduce((acc,a)=>acc+a.weight*(s[a.key]||0),0)*1000)/10;
-      saveToServer(s, {[act]:1});
+      const updates = applySequentialMark(s, actIdx);
+      recomputePct(s);
+      s.fecha_update = new Date().toISOString();
+      await saveToServer(s, updates);
     }
-  });
-  renderTable();
-  renderKPIs();
+  }
+  refreshDashboard();
   showToast(`✓ ${selected.length} soportes actualizados`);
 }
 
