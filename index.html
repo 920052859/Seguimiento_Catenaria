@@ -18,14 +18,79 @@
 }
 body{background:var(--bg);color:var(--text);font-family:'Segoe UI',system-ui,sans-serif;min-height:100vh;overflow-x:hidden}
 
-/* ===== HEADER ===== */
-.header{background:linear-gradient(135deg,#0a0f1e 0%,#1a1f35 100%);border-bottom:1px solid var(--border);padding:14px 20px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:100}
-.header-left{display:flex;align-items:center;gap:14px}
-.logo-line{width:4px;height:36px;background:linear-gradient(180deg,var(--accent),var(--accent2));border-radius:2px}
-.header h1{font-size:1.1rem;font-weight:700;letter-spacing:.3px}
-.header h1 span{color:var(--accent);font-size:.85rem;display:block;font-weight:400;margin-top:2px}
-.last-update{font-size:.75rem;color:var(--text3);text-align:right;line-height:1.6}
-.last-update b{color:var(--accent);display:block;font-size:.8rem}
+/* ===== HEADER HITACHI ===== */
+.header{background:linear-gradient(135deg,#08101f 0%,#0e1628 60%,#111e30 100%);border-bottom:2px solid #c8000a;padding:0;display:flex;align-items:stretch;justify-content:space-between;position:sticky;top:0;z-index:100;box-shadow:0 2px 20px rgba(200,0,10,.25)}
+.header-left{display:flex;align-items:center;gap:0}
+.header-hitachi-brand{display:flex;flex-direction:column;align-items:flex-start;justify-content:center;padding:10px 18px;border-right:1px solid rgba(255,255,255,.08);min-width:140px}
+.hitachi-wordmark{display:flex;align-items:baseline;gap:0;line-height:1}
+.hitachi-letter{font-family:'Arial Black','Helvetica Neue',Arial,sans-serif;font-weight:900;font-size:22px;color:#fff;letter-spacing:-.5px}
+.hitachi-tagline{font-size:.58rem;color:#94a3b8;letter-spacing:1.5px;text-transform:uppercase;margin-top:1px;font-weight:400}
+.header-vdivider{width:1px;background:rgba(255,255,255,.1);align-self:stretch}
+.header-team-badge{display:flex;flex-direction:column;align-items:center;justify-content:center;background:#c8000a;padding:0 16px;font-size:.62rem;font-weight:800;color:#fff;letter-spacing:1.4px;text-transform:uppercase;line-height:1.4;min-width:80px;align-self:stretch}
+.header-title-block{padding:10px 18px;display:flex;flex-direction:column;justify-content:center;gap:3px}
+.header-proj-title{font-size:1.05rem;font-weight:400;color:rgba(255,255,255,.9);letter-spacing:.2px}
+.header-proj-title strong{font-weight:700}
+.header-proj-sub{font-size:.7rem;color:#64748b;letter-spacing:.4px}
+.header-right{display:flex;align-items:center;gap:16px;padding:10px 18px}
+.header-metro-icon{opacity:.8}
+.header-status-block{display:flex;flex-direction:column;align-items:flex-end;gap:4px}
+.last-update{font-size:.72rem;color:var(--text3);text-align:right;line-height:1.6}
+.last-update b{color:var(--accent);display:block;font-size:.78rem}
+.header-clock{font-size:.68rem;color:#475569;font-family:monospace}
+.fallback-badge{font-size:.65rem;background:rgba(239,68,68,.15);color:var(--red);border:1px solid rgba(239,68,68,.3);padding:2px 8px;border-radius:4px;font-weight:600}
+
+/* ===== PASSWORD MODAL ===== */
+.pwd-modal-bg{display:none;position:fixed;inset:0;background:rgba(0,0,0,.75);z-index:9000;align-items:center;justify-content:center}
+.pwd-modal-bg.open{display:flex}
+.pwd-box{background:var(--bg2);border:1px solid var(--border);border-radius:12px;padding:28px 32px;min-width:320px;display:flex;flex-direction:column;gap:14px;box-shadow:0 8px 40px rgba(0,0,0,.6)}
+.pwd-box h3{font-size:1rem;font-weight:700;color:var(--text)}
+.pwd-box p{font-size:.82rem;color:var(--text2)}
+.pwd-input{background:var(--bg3);border:1px solid var(--border);color:var(--text);padding:8px 14px;border-radius:7px;font-size:.9rem;width:100%;outline:none}
+.pwd-input:focus{border-color:var(--accent)}
+.pwd-box .cf-btns{display:flex;gap:8px;justify-content:flex-end}
+
+/* ===== DAILY REPORT MODAL ===== */
+.rpt-modal-bg{display:none;position:fixed;inset:0;background:rgba(0,0,0,.75);z-index:8900;align-items:center;justify-content:center}
+.rpt-modal-bg.open{display:flex}
+.rpt-box{background:var(--bg2);border:1px solid var(--border);border-radius:12px;padding:24px 28px;min-width:520px;max-width:700px;max-height:80vh;overflow-y:auto;box-shadow:0 8px 40px rgba(0,0,0,.6)}
+.rpt-box h3{font-size:1rem;font-weight:700;color:var(--accent);margin-bottom:14px;display:flex;align-items:center;gap:8px}
+.rpt-kpi-row{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:16px}
+.rpt-kpi{background:var(--bg3);border-radius:8px;padding:10px 14px;text-align:center}
+.rpt-kpi-n{font-size:1.6rem;font-weight:700;color:var(--accent)}
+.rpt-kpi-l{font-size:.68rem;color:var(--text3);text-transform:uppercase;letter-spacing:.6px;margin-top:2px}
+.rpt-section{margin-bottom:14px}
+.rpt-section h4{font-size:.8rem;font-weight:600;color:var(--text2);text-transform:uppercase;letter-spacing:.7px;margin-bottom:8px;border-bottom:1px solid var(--border);padding-bottom:4px}
+.rpt-table{width:100%;border-collapse:collapse;font-size:.78rem}
+.rpt-table th{padding:5px 10px;background:var(--bg3);color:var(--text3);font-weight:600;text-align:left}
+.rpt-table td{padding:5px 10px;border-top:1px solid var(--border);color:var(--text)}
+
+/* ===== VEHICLE MODAL ===== */
+.vehicle-modal-bg{display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:8800;align-items:center;justify-content:center}
+.vehicle-modal-bg.open{display:flex}
+.vehicle-box{background:var(--bg2);border:1px solid var(--border);border-radius:12px;padding:24px 28px;min-width:360px;box-shadow:0 8px 40px rgba(0,0,0,.6);display:flex;flex-direction:column;gap:14px}
+.vehicle-box h3{font-size:.95rem;font-weight:700;color:var(--text)}
+.vehicle-opt{display:flex;flex-direction:column;gap:10px}
+.vehicle-btn{padding:10px 16px;border-radius:8px;cursor:pointer;font-size:.85rem;font-weight:600;border:1px solid var(--border);background:var(--bg3);color:var(--text);display:flex;align-items:center;gap:8px;transition:.15s}
+.vehicle-btn:hover{border-color:var(--accent);background:rgba(0,198,255,.08)}
+.vehicle-btn.selected{border-color:var(--accent);background:rgba(0,198,255,.14);color:var(--accent)}
+.vehicle-icon{font-size:1.1rem}
+/* Map mini KPI strip */
+.map-kpi-strip{display:flex;gap:6px;padding:8px 16px;background:var(--bg);border-bottom:1px solid var(--border);overflow-x:auto;flex-wrap:wrap}
+.map-kpi-chip{display:flex;align-items:center;gap:5px;background:var(--bg3);border:1px solid var(--border);border-radius:20px;padding:3px 10px;font-size:.72rem;white-space:nowrap;cursor:pointer;transition:.15s}
+.map-kpi-chip:hover{border-color:var(--accent)}
+.map-kpi-chip .chip-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0}
+.map-kpi-chip .chip-val{font-weight:700;color:var(--text)}
+.map-kpi-chip .chip-lbl{color:var(--text3)}
+/* Vehicle legend in map */
+.vehicle-legend{display:flex;gap:12px;font-size:.7rem;margin-left:8px;flex-wrap:wrap}
+.vehicle-legend-item{display:flex;align-items:center;gap:4px;color:var(--text2);cursor:pointer}
+/* SPI section */
+.spi-bar{display:flex;align-items:center;gap:10px;padding:10px 16px;background:var(--bg3);border-radius:8px;margin-top:10px}
+.spi-indicator{font-size:1.4rem;font-weight:700}
+.spi-label{font-size:.78rem;color:var(--text2)}
+.spi-green{color:#22c55e}
+.spi-yellow{color:#f59e0b}
+.spi-red{color:#ef4444}
 
 /* ===== NAV TABS ===== */
 .tabs{display:flex;gap:4px;padding:10px 20px;background:var(--bg2);border-bottom:1px solid var(--border)}
@@ -214,17 +279,90 @@ tbody td{padding:6px 10px;vertical-align:middle;white-space:nowrap}
 </head>
 <body>
 
-<!-- HEADER -->
+<!-- HEADER HITACHI PROFESSIONAL -->
 <div class="header">
   <div class="header-left">
-    <div class="logo-line"></div>
-    <h1>Seguimiento Gráfico Catenaria – Tramo 3 y 4
-      <span>Línea 2 Metro Lima · Via 1 + Via 2</span>
-    </h1>
+    <!-- Brand block -->
+    <div class="header-hitachi-brand">
+      <div class="hitachi-wordmark">
+        <!-- SVG Hitachi custom wordmark - letras extraídas del logo oficial -->
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 140 28" height="24" width="140" aria-label="HITACHI">
+          <!-- H -->
+          <rect x="0"  y="2" width="4.5" height="24" rx="1" fill="#fff"/>
+          <rect x="0"  y="12" width="14" height="4"   rx="1" fill="#fff"/>
+          <rect x="9.5" y="2" width="4.5" height="24" rx="1" fill="#fff"/>
+          <!-- I -->
+          <rect x="18" y="2" width="4.5" height="24" rx="1" fill="#fff"/>
+          <!-- T -->
+          <rect x="27" y="2" width="18" height="4"   rx="1" fill="#fff"/>
+          <rect x="33.8" y="6" width="4.5" height="20" rx="1" fill="#fff"/>
+          <!-- A -->
+          <polygon points="58,26 66,2 70,2 78,26 73,26 68,8 63,26" fill="#fff"/>
+          <rect x="60.5" y="17" width="11" height="3.5" rx="1" fill="#fff"/>
+          <!-- C -->
+          <path d="M97 2 h-8 a9 9 0 0 0 0 24 h8 v-4.5 h-7.5 a4.5 4.5 0 0 1 0-15 h7.5 z" fill="#fff"/>
+          <!-- H2 -->
+          <rect x="102" y="2" width="4.5" height="24" rx="1" fill="#fff"/>
+          <rect x="102" y="12" width="14" height="4"   rx="1" fill="#fff"/>
+          <rect x="111.5" y="2" width="4.5" height="24" rx="1" fill="#fff"/>
+          <!-- I2 -->
+          <rect x="121" y="2" width="4.5" height="24" rx="1" fill="#fff"/>
+        </svg>
+      </div>
+      <div class="hitachi-tagline">Inspire the Next</div>
+    </div>
+    <div class="header-vdivider"></div>
+    <div class="header-team-badge">
+      <span>TEAM</span>
+      <span>CONSTRUCTION</span>
+    </div>
+    <div class="header-vdivider"></div>
+    <div class="header-title-block">
+      <div class="header-proj-title">Dashboard <strong>Seguimiento Gráfico Catenaria</strong></div>
+      <div class="header-proj-sub">Tramo 3 y 4 · Línea 2 Metro Lima · Via 1 + Via 2</div>
+    </div>
   </div>
-  <div class="last-update">
-    <b id="last-ts">Cargando...</b>
-    Última actualización
+  <div class="header-right">
+    <!-- Metro/catenary icon -->
+    <div class="header-metro-icon">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 52" width="58" height="48">
+        <!-- catenary wire -->
+        <line x1="0" y1="4" x2="64" y2="4" stroke="#00c6ff" stroke-width="1.8"/>
+        <!-- support rods -->
+        <line x1="12" y1="4" x2="12" y2="14" stroke="#475569" stroke-width="1.5"/>
+        <line x1="52" y1="4" x2="52" y2="14" stroke="#475569" stroke-width="1.5"/>
+        <!-- insulators -->
+        <circle cx="12" cy="15" r="2" fill="#fbbf24"/>
+        <circle cx="52" cy="15" r="2" fill="#fbbf24"/>
+        <!-- brackets -->
+        <line x1="12" y1="17" x2="22" y2="22" stroke="#94a3b8" stroke-width="1.2"/>
+        <line x1="52" y1="17" x2="42" y2="22" stroke="#94a3b8" stroke-width="1.2"/>
+        <!-- contact wire -->
+        <line x1="4" y1="22" x2="60" y2="22" stroke="#00c6ff" stroke-width="1.5" stroke-dasharray="2,1"/>
+        <!-- train body -->
+        <rect x="4" y="24" width="56" height="17" rx="3" fill="#1e2535" stroke="#00c6ff" stroke-width="1.4"/>
+        <!-- windows -->
+        <rect x="8"  y="28" width="12" height="8" rx="1.5" fill="#00c6ff" opacity=".65"/>
+        <rect x="26" y="28" width="12" height="8" rx="1.5" fill="#00c6ff" opacity=".65"/>
+        <rect x="44" y="28" width="12" height="8" rx="1.5" fill="#00c6ff" opacity=".65"/>
+        <!-- door -->
+        <line x1="22" y1="25" x2="22" y2="41" stroke="#0e1628" stroke-width="1.5"/>
+        <line x1="42" y1="25" x2="42" y2="41" stroke="#0e1628" stroke-width="1.5"/>
+        <!-- wheels -->
+        <circle cx="14" cy="43" r="3.5" fill="none" stroke="#64748b" stroke-width="1.5"/>
+        <circle cx="50" cy="43" r="3.5" fill="none" stroke="#64748b" stroke-width="1.5"/>
+        <!-- rail -->
+        <line x1="0" y1="47" x2="64" y2="47" stroke="#334155" stroke-width="2.5"/>
+      </svg>
+    </div>
+    <div class="header-status-block">
+      <div class="last-update">
+        <b id="last-ts">Cargando...</b>
+        Última actualización
+      </div>
+      <div class="header-clock" id="header-clock"></div>
+      <div class="fallback-badge" id="fallback-badge" style="display:none">🔴 Modo respaldo local</div>
+    </div>
   </div>
 </div>
 
@@ -234,7 +372,7 @@ tbody td{padding:6px 10px;vertical-align:middle;white-space:nowrap}
   <div class="tab" onclick="switchTab('kpi')">📊 KPIs y Avance</div>
   <div class="tab" onclick="switchTab('table')">📋 Tabla Soportes</div>
   <div class="tab" onclick="switchTab('history')">📅 Histórico</div>
-  <div class="tab-mode-toggle" id="mode-toggle" onclick="toggleMode()">👁 Visor</div>
+  <div class="tab-mode-toggle" id="mode-toggle" onclick="requestEditorMode()">✏ Editor</div>
 </div>
 
 <!-- FILTERS -->
@@ -294,8 +432,15 @@ tbody td{padding:6px 10px;vertical-align:middle;white-space:nowrap}
         <button class="map-toolbar-btn" onclick="zoomIn()">＋</button>
         <button class="map-toolbar-btn" onclick="zoomOut()">－</button>
         <button class="map-toolbar-btn" onclick="resetZoom()">⌂ Reset</button>
+        <div class="vehicle-legend" id="vehicle-map-legend">
+          <span class="vehicle-legend-item"><span style="width:10px;height:10px;border-radius:50%;background:#60a5fa;display:inline-block;margin-right:3px"></span>Sky 1</span>
+          <span class="vehicle-legend-item"><span style="width:10px;height:10px;border-radius:50%;background:#a855f7;display:inline-block;margin-right:3px"></span>Sky 2</span>
+          <span class="vehicle-legend-item"><span style="width:10px;height:10px;border-radius:50%;background:#22d3ee;display:inline-block;margin-right:3px"></span>Bivial</span>
+        </div>
         <div class="legend" id="map-legend"></div>
       </div>
+      <!-- Mini KPI strip under toolbar -->
+      <div class="map-kpi-strip" id="map-kpi-strip"></div>
       <canvas id="tunnel-canvas" height="440"></canvas>
       <div class="map-hint" id="map-hint-bar">
         Scroll para zoom · Arrastra para desplazar · Clic en soporte para detalle
@@ -327,6 +472,29 @@ tbody td{padding:6px 10px;vertical-align:middle;white-space:nowrap}
           <span>Tramo</span><span>Periodo</span><span>Plan %</span><span>Real %</span><span>Delta</span>
         </div>
         <div id="crono-rows"></div>
+      </div>
+    </div>
+
+    <!-- SPI Panel -->
+    <div class="section-title" style="margin-top:18px">Índice de Desempeño del Cronograma (SPI)</div>
+    <div class="gantt-wrap">
+      <div style="padding:14px 16px">
+        <div id="spi-bar-global" class="spi-bar" style="margin-bottom:12px">
+          <div>
+            <div style="font-size:.72rem;color:var(--text3);text-transform:uppercase;letter-spacing:.6px;margin-bottom:2px">SPI Global</div>
+            <div class="spi-indicator" id="spi-value-global">--</div>
+          </div>
+          <div style="flex:1">
+            <div style="font-size:.72rem;color:var(--text3);margin-bottom:4px" id="spi-desc-global">Calculando…</div>
+            <div style="background:var(--bg4);border-radius:4px;height:8px;overflow:hidden">
+              <div id="spi-fill-global" style="height:100%;border-radius:4px;transition:width .6s;background:#22c55e;width:0%"></div>
+            </div>
+          </div>
+        </div>
+        <canvas id="spi-canvas" height="240" style="width:100%;background:#0a0f1e;border-radius:8px;display:block;margin-top:8px"></canvas>
+        <div style="font-size:.72rem;color:var(--text3);margin-top:6px;text-align:center">
+          Curva S contractual vs avance real acumulado desde inicio hasta fin previsto. Los puntos reales se obtienen de los snapshots semanales guardados.
+        </div>
       </div>
     </div>
   </div>
@@ -389,7 +557,7 @@ tbody td{padding:6px 10px;vertical-align:middle;white-space:nowrap}
     </div>
     <div class="modal-footer">
       <button class="btn btn-secondary" onclick="closeModal()">Cancelar</button>
-      <button class="btn btn-primary" onclick="saveModal()">💾 Guardar</button>
+      <button class="btn btn-primary" onclick="saveModalWithVehicle()">💾 Guardar</button>
     </div>
   </div>
 </div>
@@ -403,7 +571,8 @@ tbody td{padding:6px 10px;vertical-align:middle;white-space:nowrap}
   <div class="table-wrap" style="padding:16px">
     <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:12px;align-items:center">
       <span style="font-size:.82rem;color:var(--text2)">Snapshots guardados:</span>
-      <button class="btn btn-primary" onclick="saveSnapshot()">💾 Guardar snapshot ahora</button>
+      <button class="btn btn-primary" onclick="saveSnapshot().then(showDailyReport)">💾 Guardar snapshot + Reporte</button>
+      <button class="btn btn-secondary" onclick="showDailyReport()">📋 Ver reporte hoy</button>
       <button class="btn btn-secondary allow-viewer" onclick="loadHistory()">↻ Actualizar</button>
       <span id="hist-count" style="font-size:.78rem;color:var(--text3)"></span>
     </div>
@@ -418,6 +587,75 @@ tbody td{padding:6px 10px;vertical-align:middle;white-space:nowrap}
         </tr></thead>
         <tbody id="history-body"></tbody>
       </table>
+    </div>
+  </div>
+</div>
+
+<!-- PASSWORD MODAL -->
+<div class="pwd-modal-bg" id="pwd-modal">
+  <div class="pwd-box">
+    <h3>🔐 Acceso al Modo Editor</h3>
+    <p>Ingresa la contraseña para activar el modo de edición.</p>
+    <input class="pwd-input" type="password" id="pwd-input" placeholder="Contraseña..." onkeydown="if(event.key==='Enter')checkPassword()">
+    <div id="pwd-error" style="color:var(--red);font-size:.78rem;display:none">Contraseña incorrecta.</div>
+    <div class="cf-btns">
+      <button class="btn btn-secondary" onclick="document.getElementById('pwd-modal').classList.remove('open')">Cancelar</button>
+      <button class="btn btn-primary" onclick="checkPassword()">Entrar</button>
+    </div>
+  </div>
+</div>
+
+<!-- VEHICLE SELECTION MODAL -->
+<div class="vehicle-modal-bg" id="vehicle-modal">
+  <div class="vehicle-box">
+    <h3>🚃 ¿Con qué vehículo se realizó este avance?</h3>
+    <div class="vehicle-opt">
+      <div class="vehicle-btn" id="veh-sky1" onclick="selectVehicle('Sky 1')">
+        <span class="vehicle-icon">🔧</span>Sky 1
+      </div>
+      <div class="vehicle-btn" id="veh-sky2" onclick="selectVehicle('Sky 2')">
+        <span class="vehicle-icon">🔧</span>Sky 2
+      </div>
+      <div class="vehicle-btn" id="veh-bivial" onclick="selectVehicle('Bivial')">
+        <span class="vehicle-icon">🚂</span>Bivial
+      </div>
+    </div>
+    <div style="display:flex;gap:8px;justify-content:flex-end">
+      <button class="btn btn-secondary" onclick="skipVehicle()">Sin asignar</button>
+      <button class="btn btn-primary" onclick="confirmVehicle()">Confirmar</button>
+    </div>
+  </div>
+</div>
+
+<!-- DAILY REPORT MODAL -->
+<div class="rpt-modal-bg" id="rpt-modal">
+  <div class="rpt-box">
+    <h3>📋 Reporte Diario · <span id="rpt-date"></span></h3>
+    <div class="rpt-kpi-row" id="rpt-kpis"></div>
+    <div class="rpt-section" id="rpt-vehicles-section">
+      <h4>Por Vehículo Ferroviario</h4>
+      <table class="rpt-table" id="rpt-vehicles-table">
+        <thead><tr><th>Vehículo</th><th>Soportes</th><th>Actividades</th></tr></thead>
+        <tbody id="rpt-vehicles-body"></tbody>
+      </table>
+    </div>
+    <div class="rpt-section" id="rpt-tramos-section">
+      <h4>Por Frente / Tramo</h4>
+      <table class="rpt-table">
+        <thead><tr><th>Tramo</th><th>Soportes</th><th>Avance completado</th></tr></thead>
+        <tbody id="rpt-tramos-body"></tbody>
+      </table>
+    </div>
+    <div class="rpt-section">
+      <h4>Actividades realizadas hoy</h4>
+      <table class="rpt-table">
+        <thead><tr><th>Actividad</th><th>Cantidad</th></tr></thead>
+        <tbody id="rpt-acts-body"></tbody>
+      </table>
+    </div>
+    <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:8px">
+      <button class="btn btn-secondary" onclick="closeReport()">Cerrar</button>
+      <button class="btn btn-primary" onclick="exportReportPDF()">⬇ Exportar PDF</button>
     </div>
   </div>
 </div>
@@ -505,6 +743,50 @@ const MAX_ZOOM = 120; // zoom maximo para ver soporte a soporte
 let historyData = null;
 let alignmentProfile = [];
 
+// -------- PASSWORD / SESSION --------
+const EDITOR_PASSWORD = 'admin123';
+let editorUnlocked = sessionStorage.getItem('catenaria_editor') === '1';
+
+// -------- VEHICLES --------
+const VEHICLES = {
+  'Sky 1':  {color:'#60a5fa', icon:'🔧'},
+  'Sky 2':  {color:'#a855f7', icon:'🔧'},
+  'Bivial': {color:'#22d3ee', icon:'🚂'},
+};
+let pendingVehicleCallback = null; // fn to call after vehicle confirmed
+let currentVehicle = null;
+
+// -------- DAILY REPORT DATA --------
+let dailySessionLog = []; // {id, via, activity, ts, vehicle, tramo}
+
+// -------- CLOCK --------
+function startClock() {
+  function tick() {
+    const now = new Date();
+    const el = document.getElementById('header-clock');
+    if (el) el.textContent = now.toLocaleString('es-PE',{timeZone:'America/Lima',hour12:false});
+  }
+  tick();
+  setInterval(tick, 1000);
+}
+
+// -------- DAILY AUTO-SAVE at 19:00–21:00 --------
+function scheduleDailyAutoSave() {
+  function checkTime() {
+    const now = new Date();
+    const lima = new Date(now.toLocaleString('en-US',{timeZone:'America/Lima'}));
+    const h = lima.getHours();
+    if (h >= 19 && h < 21 && !sessionStorage.getItem('daily_snapshot_'+lima.toDateString())) {
+      sessionStorage.setItem('daily_snapshot_'+lima.toDateString(), '1');
+      saveSnapshot().then(() => {
+        if (!document.getElementById('rpt-modal').classList.contains('open')) showDailyReport();
+      });
+    }
+  }
+  checkTime();
+  setInterval(checkTime, 5 * 60 * 1000); // every 5 min
+}
+
 // ============================================================
 //  INIT
 // ============================================================
@@ -518,6 +800,14 @@ document.addEventListener('DOMContentLoaded', async () => {
   renderCrono();
   renderMap();
   setupMapEvents();
+  startClock();
+  scheduleDailyAutoSave();
+  if (editorUnlocked) activateEditorMode();
+  if (usingLocalFallback) {
+    const badge = document.getElementById('fallback-badge');
+    if (badge) badge.style.display = '';
+  }
+  renderMapKpiStrip();
 });
 
 async function loadAlignmentProfile() {
@@ -631,6 +921,7 @@ function switchTab(name) {
   });
   if (name === 'map') renderMap();
   if (name === 'history') renderHistory();
+  if (name === 'kpi') { setTimeout(renderSPI, 120); }
 }
 
 // ============================================================
@@ -1142,6 +1433,8 @@ function renderMap() {
 }
 
 function updateMapLegend() {
+  // Draw vehicle last-position dots
+  drawVehiclePositions();
   const leg = document.getElementById('map-legend');
   if (mapMode === 'tipo') {
     leg.innerHTML = legend([
@@ -1170,6 +1463,53 @@ function updateMapLegend() {
 
 function legend(items) {
   return items.map(i=>`<div class="legend-item"><div class="legend-dot" style="background:${i.color}"></div>${i.label}</div>`).join('');
+}
+
+// Vehicle positions state: {name: {soporte_id, soporte_via, km}}
+const vehiclePositions = {};
+
+function setVehiclePosition(vehicleName, soporte) {
+  if (!vehicleName || !soporte) return;
+  vehiclePositions[vehicleName] = {id:soporte.id, via:soporte.via, km:Number(soporte.km)||0, ts:new Date().toISOString()};
+}
+
+function drawVehiclePositions() {
+  const c = document.getElementById('tunnel-canvas');
+  if (!c) return;
+  const ctx = c.getContext('2d');
+  const W = c.width, H = c.height;
+  if (!W) return;
+  const src = filtered.length > 0 ? filtered : allSoportes;
+  const validKm = src.map(s=>Number(s.km)||0).filter(k=>k>0);
+  if (!validKm.length) return;
+  const kmMin=Math.min(...validKm), kmMax=Math.max(...validKm), kmRange=kmMax-kmMin||1;
+  const MARGIN=72, USABLE_W=(W-MARGIN*2)*mapScale;
+  const toX = km => MARGIN + ((km-kmMin)/kmRange)*USABLE_W + mapOffsetX;
+
+  Object.entries(vehiclePositions).forEach(([name, pos]) => {
+    const cfg = VEHICLES[name];
+    if (!cfg || !pos.km) return;
+    const x = toX(pos.km);
+    if (x<0 || x>W) return;
+    // Train icon on top edge
+    const y = 20;
+    ctx.save();
+    ctx.fillStyle = cfg.color;
+    ctx.globalAlpha = 0.9;
+    ctx.beginPath();
+    ctx.roundRect(x-18, y-8, 36, 16, 4);
+    ctx.fill();
+    ctx.fillStyle = '#0a0f1e';
+    ctx.font = 'bold 7px Segoe UI';
+    ctx.textAlign = 'center';
+    ctx.fillText(name, x, y+2);
+    // Arrow down
+    ctx.fillStyle = cfg.color;
+    ctx.beginPath();
+    ctx.moveTo(x-4, y+8); ctx.lineTo(x+4, y+8); ctx.lineTo(x, y+14);
+    ctx.closePath(); ctx.fill();
+    ctx.restore();
+  });
 }
 
 // Map zoom & pan
@@ -1201,6 +1541,244 @@ if (isViewerMode) {
   document.body.classList.add('viewer-mode');
   const btn = document.getElementById('mode-toggle');
   if (btn) { btn.textContent = '✏ Editor'; btn.classList.add('editor-mode'); }
+}
+
+// ---- Password-protected Editor ----
+function requestEditorMode() {
+  if (!isViewerMode) {
+    // Currently in editor: switch to viewer
+    isViewerMode = true;
+    editorUnlocked = false;
+    sessionStorage.removeItem('catenaria_editor');
+    document.body.classList.add('viewer-mode');
+    const btn = document.getElementById('mode-toggle');
+    if (btn) { btn.textContent = '✏ Editor'; btn.classList.remove('editor-mode'); }
+    showToast('Modo Visor activado');
+    return;
+  }
+  if (editorUnlocked) { activateEditorMode(); return; }
+  document.getElementById('pwd-input').value = '';
+  document.getElementById('pwd-error').style.display = 'none';
+  document.getElementById('pwd-modal').classList.add('open');
+  setTimeout(() => document.getElementById('pwd-input').focus(), 100);
+}
+
+function checkPassword() {
+  const val = document.getElementById('pwd-input').value;
+  if (val === EDITOR_PASSWORD) {
+    document.getElementById('pwd-modal').classList.remove('open');
+    editorUnlocked = true;
+    sessionStorage.setItem('catenaria_editor', '1');
+    activateEditorMode();
+  } else {
+    document.getElementById('pwd-error').style.display = '';
+    document.getElementById('pwd-input').value = '';
+    document.getElementById('pwd-input').focus();
+  }
+}
+
+function activateEditorMode() {
+  isViewerMode = false;
+  document.body.classList.remove('viewer-mode');
+  const btn = document.getElementById('mode-toggle');
+  if (btn) { btn.textContent = '👁 Visor'; btn.classList.add('editor-mode'); }
+  showToast('✓ Modo Editor activado');
+}
+
+// ---- Vehicle selection ----
+function openVehicleModal(callback) {
+  pendingVehicleCallback = callback;
+  document.querySelectorAll('.vehicle-btn').forEach(b => b.classList.remove('selected'));
+  if (currentVehicle) {
+    const idMap = {'Sky 1':'veh-sky1','Sky 2':'veh-sky2','Bivial':'veh-bivial'};
+    const el = document.getElementById(idMap[currentVehicle]);
+    if (el) el.classList.add('selected');
+  }
+  document.getElementById('vehicle-modal').classList.add('open');
+}
+
+function selectVehicle(name) {
+  currentVehicle = name;
+  document.querySelectorAll('.vehicle-btn').forEach(b => b.classList.remove('selected'));
+  const idMap = {'Sky 1':'veh-sky1','Sky 2':'veh-sky2','Bivial':'veh-bivial'};
+  const el = document.getElementById(idMap[name]);
+  if (el) el.classList.add('selected');
+}
+
+function confirmVehicle() {
+  document.getElementById('vehicle-modal').classList.remove('open');
+  if (pendingVehicleCallback) pendingVehicleCallback(currentVehicle);
+  pendingVehicleCallback = null;
+}
+
+function skipVehicle() {
+  document.getElementById('vehicle-modal').classList.remove('open');
+  if (pendingVehicleCallback) pendingVehicleCallback(null);
+  pendingVehicleCallback = null;
+}
+
+// ---- Map KPI strip ----
+function renderMapKpiStrip() {
+  const strip = document.getElementById('map-kpi-strip');
+  if (!strip) return;
+  const total = allSoportes.length || 1;
+  const globalPct = allSoportes.reduce((s,x)=>s+Number(x.pct||0),0)/total;
+  let html = `<div class="map-kpi-chip" onclick="switchTab('kpi')">
+    <div class="chip-dot" style="background:#00c6ff"></div>
+    <span class="chip-val">${globalPct.toFixed(1)}%</span>
+    <span class="chip-lbl">Global</span>
+  </div>`;
+  ACTS.forEach(a => {
+    const done = allSoportes.filter(s=>Number(s[a.key])===1).length;
+    const pct = done/total*100;
+    html += `<div class="map-kpi-chip" onclick="switchTab('kpi')">
+      <div class="chip-dot" style="background:${a.color}"></div>
+      <span class="chip-val">${pct.toFixed(0)}%</span>
+      <span class="chip-lbl">${a.label.replace('Instalación de ','').replace('Ménsula','Mén.')}</span>
+    </div>`;
+  });
+  // Vehicle counts from this session
+  Object.entries(VEHICLES).forEach(([name,cfg])=>{
+    const n = dailySessionLog.filter(l=>l.vehicle===name).length;
+    if (n===0) return;
+    html += `<div class="map-kpi-chip">
+      <div class="chip-dot" style="background:${cfg.color}"></div>
+      <span class="chip-val">${n}</span>
+      <span class="chip-lbl">${name}</span>
+    </div>`;
+  });
+  strip.innerHTML = html;
+}
+
+// ---- SPI Calculation & Chart ----
+function computeContractualCurve() {
+  // Build from CRONOGRAMA: linear ramp per tramo weighted by soporte count
+  const tramoMap = {};
+  allSoportes.forEach(s=>{ if (s.tramo) tramoMap[s.tramo]=(tramoMap[s.tramo]||0)+1; });
+  const total = allSoportes.length || 1;
+  const events = [];
+  CRONOGRAMA.forEach(cr => {
+    const n = tramoMap[cr.tramo] || 0;
+    if (n===0) return;
+    events.push({start:new Date(cr.inicio), end:new Date(cr.fin), weight:n/total*100});
+  });
+  if (!events.length) return [];
+  const globalStart = events.reduce((m,e)=>e.start<m?e.start:m, events[0].start);
+  const globalEnd   = events.reduce((m,e)=>e.end>m?e.end:m,   events[0].end);
+  const days = Math.max(1,(globalEnd-globalStart)/86400000);
+  const pts = [];
+  for (let d=0; d<=Math.ceil(days); d+=7) {
+    const date = new Date(globalStart.getTime()+d*86400000);
+    let planned = 0;
+    events.forEach(e => {
+      if (date<=e.start) return;
+      if (date>=e.end) { planned+=e.weight; return; }
+      planned += e.weight*((date-e.start)/(e.end-e.start));
+    });
+    pts.push({date, planned: Math.min(100,planned)});
+  }
+  pts.push({date:globalEnd, planned:100});
+  return pts;
+}
+
+function renderSPI() {
+  const c = document.getElementById('spi-canvas');
+  if (!c) return;
+  const W = c.offsetWidth||800, H = 240;
+  c.width=W; c.height=H;
+  const ctx = c.getContext('2d');
+  ctx.clearRect(0,0,W,H);
+  ctx.fillStyle='#0a0f1e'; ctx.fillRect(0,0,W,H);
+
+  const contractual = computeContractualCurve();
+  if (!contractual.length) {
+    ctx.fillStyle='#64748b'; ctx.textAlign='center'; ctx.font='12px Segoe UI';
+    ctx.fillText('Sin datos de cronograma',W/2,H/2); return;
+  }
+  const tMin=contractual[0].date.getTime(), tMax=contractual[contractual.length-1].date.getTime();
+  const tRange=Math.max(1,tMax-tMin);
+
+  const pad={l:44,r:16,t:20,b:36};
+  const cw=W-pad.l-pad.r, ch=H-pad.t-pad.b;
+
+  // Grid
+  ctx.strokeStyle='rgba(71,85,105,.3)'; ctx.lineWidth=1;
+  ctx.font='9px Segoe UI'; ctx.fillStyle='#64748b'; ctx.textAlign='right';
+  [0,20,40,60,80,100].forEach(p=>{
+    const y=pad.t+ch*(1-p/100);
+    ctx.beginPath(); ctx.moveTo(pad.l,y); ctx.lineTo(W-pad.r,y); ctx.stroke();
+    ctx.fillText(p+'%', pad.l-5, y+3);
+  });
+  const toX = t => pad.l + ((t-tMin)/tRange)*cw;
+  const toY = p => pad.t + ch*(1-Math.min(100,Math.max(0,p))/100);
+  // Planned S-curve
+  ctx.strokeStyle='#f59e0b'; ctx.lineWidth=2; ctx.setLineDash([6,3]);
+  ctx.beginPath();
+  contractual.forEach((pt,i)=>{
+    const x=toX(pt.date.getTime()), y=toY(pt.planned);
+    i===0 ? ctx.moveTo(x,y) : ctx.lineTo(x,y);
+  });
+  ctx.stroke(); ctx.setLineDash([]);
+  // Today line
+  const now = new Date();
+  if (now.getTime()>=tMin && now.getTime()<=tMax) {
+    const tx=toX(now.getTime());
+    ctx.strokeStyle='rgba(239,68,68,.6)'; ctx.lineWidth=1.5; ctx.setLineDash([4,4]);
+    ctx.beginPath(); ctx.moveTo(tx,pad.t); ctx.lineTo(tx,H-pad.b); ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.fillStyle='rgba(239,68,68,.8)'; ctx.textAlign='center'; ctx.font='8px Segoe UI';
+    ctx.fillText('Hoy',tx,pad.t-4);
+  }
+  // Real data from snapshots
+  const real = [...(historyData||[])].sort((a,b)=>String(a.semana).localeCompare(String(b.semana)));
+  if (real.length) {
+    ctx.strokeStyle='#00c6ff'; ctx.lineWidth=2.5;
+    ctx.beginPath();
+    real.forEach((row,i)=>{
+      const d=new Date(row.timestamp||row.semana);
+      const x=toX(Math.max(tMin,Math.min(tMax,d.getTime())));
+      const y=toY(Number(row.global_pct||0));
+      i===0 ? ctx.moveTo(x,y) : ctx.lineTo(x,y);
+    });
+    ctx.stroke();
+    // Dot on latest
+    const last=real[real.length-1];
+    const lx=toX(new Date(last.timestamp||last.semana).getTime());
+    const ly=toY(Number(last.global_pct||0));
+    ctx.beginPath(); ctx.arc(lx,ly,4,0,Math.PI*2); ctx.fillStyle='#00c6ff'; ctx.fill();
+  }
+  // Legend
+  ctx.font='9px Segoe UI'; ctx.textAlign='left';
+  [[14,'#f59e0b','Plan contractual'],[130,'#00c6ff','Avance real']].forEach(([x,c,l])=>{
+    ctx.fillStyle=c; ctx.fillRect(pad.l+x,8,16,2);
+    ctx.fillStyle='#94a3b8'; ctx.fillText(l,pad.l+x+20,11);
+  });
+  // Month labels
+  ctx.textAlign='center'; ctx.fillStyle='#475569'; ctx.font='8px Segoe UI';
+  const startYear=contractual[0].date.getFullYear(), startMonth=contractual[0].date.getMonth();
+  for(let m=0;m<=24;m++){
+    const d=new Date(startYear,startMonth+m,1);
+    if(d.getTime()>tMax+86400000*10) break;
+    const x=toX(d.getTime());
+    if(x<pad.l||x>W-pad.r) continue;
+    ctx.fillText(d.toLocaleString('es-PE',{month:'short',year:'2-digit'}),x,H-pad.b+14);
+  }
+  // Compute SPI
+  if (real.length) {
+    const lastPct=Number(real[real.length-1].global_pct||0);
+    const lastDate=new Date(real[real.length-1].timestamp||real[real.length-1].semana);
+    const planned=contractual.find(pt=>pt.date>=lastDate)||contractual[contractual.length-1];
+    const spi=planned.planned>0 ? lastPct/planned.planned : null;
+    const el=document.getElementById('spi-value-global');
+    const desc=document.getElementById('spi-desc-global');
+    const fill=document.getElementById('spi-fill-global');
+    if (el && spi!==null) {
+      el.textContent=spi.toFixed(2);
+      el.className='spi-indicator '+(spi>=1?'spi-green':spi>=0.85?'spi-yellow':'spi-red');
+      if (desc) desc.textContent=spi>=1?'Adelantado al plan':spi>=0.85?'Dentro del margen aceptable':'Rezago respecto al plan contractual';
+      if (fill) { fill.style.width=Math.min(100,spi*100)+'%'; fill.style.background=spi>=1?'#22c55e':spi>=0.85?'#f59e0b':'#ef4444'; }
+    }
+  }
 }
 
 function findMapSoporteAt(clientX, clientY, radius=16) {
@@ -1596,6 +2174,84 @@ async function saveModal() {
   refreshDashboard();
   updateTimestamp(s.fecha_update);
   showToast('✓ Guardado correctamente');
+}
+
+async function saveModalWithVehicle() {
+  if (isViewerMode) { showToast('Modo visor: edición deshabilitada', true); return; }
+  openVehicleModal(async vehicle => {
+    const s = modalSoporte;
+    if (!s) return;
+    const updates = {};
+    ACTS.forEach(a => {
+      const el = document.querySelector(`[data-act="${a.key}"]`);
+      if (el) {
+        const newVal = el.classList.contains('done') ? 1 : 0;
+        if (s[a.key] !== newVal) {
+          updates[a.key] = newVal;
+          if (newVal === 1) {
+            dailySessionLog.push({id:s.id,via:s.via,activity:a.key,ts:new Date().toISOString(),vehicle,tramo:s.tramo});
+          }
+        }
+        s[a.key] = newVal;
+      }
+    });
+    const comment = document.getElementById('modal-comment').value;
+    if (comment !== s.comentario) { updates.comentario = comment; s.comentario = comment; }
+    if (vehicle) { updates.vehiculo = vehicle; s.vehiculo = vehicle; }
+    recomputePct(s);
+    s.fecha_update = new Date().toISOString();
+    s.actualizado_por = document.getElementById('f-user').value || 'web';
+    await saveToServer(s, updates);
+    closeModal();
+    refreshDashboard();
+    renderMapKpiStrip();
+    if (vehicle) setVehiclePosition(vehicle, s);
+    updateTimestamp(s.fecha_update);
+    showToast('✓ Guardado · ' + (vehicle || 'sin vehículo'));
+  });
+}
+
+// ---- Daily Report ----
+function showDailyReport() {
+  const today = new Date().toLocaleDateString('es-PE',{timeZone:'America/Lima',year:'numeric',month:'long',day:'numeric'});
+  document.getElementById('rpt-date').textContent = today;
+  const total = allSoportes.length||1;
+  const globalPct = allSoportes.reduce((s,x)=>s+Number(x.pct||0),0)/total;
+  const completados = allSoportes.filter(s=>Number(s.pct)>=100).length;
+  const todayStr = new Date().toLocaleDateString('es-PE',{timeZone:'America/Lima'});
+  const todayActualizados = allSoportes.filter(s=>s.fecha_update && new Date(s.fecha_update).toLocaleDateString('es-PE',{timeZone:'America/Lima'})===todayStr).length;
+  document.getElementById('rpt-kpis').innerHTML = `
+    <div class="rpt-kpi"><div class="rpt-kpi-n">${globalPct.toFixed(1)}%</div><div class="rpt-kpi-l">Avance global</div></div>
+    <div class="rpt-kpi"><div class="rpt-kpi-n">${completados}</div><div class="rpt-kpi-l">Soportes completos</div></div>
+    <div class="rpt-kpi"><div class="rpt-kpi-n">${dailySessionLog.length || todayActualizados}</div><div class="rpt-kpi-l">Actualizados hoy</div></div>`;
+  // By vehicle
+  const byVehicle = {};
+  dailySessionLog.forEach(l=>{
+    const v=l.vehicle||'Sin asignar';
+    if(!byVehicle[v]) byVehicle[v]={supports:new Set(),acts:0};
+    byVehicle[v].supports.add(l.id+'_'+l.via);
+    byVehicle[v].acts++;
+  });
+  document.getElementById('rpt-vehicles-body').innerHTML = Object.entries(byVehicle).length
+    ? Object.entries(byVehicle).map(([v,d])=>`<tr><td>${VEHICLES[v]?VEHICLES[v].icon+' ':''} ${v}</td><td>${d.supports.size}</td><td>${d.acts}</td></tr>`).join('')
+    : '<tr><td colspan="3" style="color:var(--text3);text-align:center">No se registraron vehículos en esta sesión</td></tr>';
+  // By tramo
+  const byTramo = {};
+  dailySessionLog.forEach(l=>{const t=l.tramo||'Sin tramo';if(!byTramo[t]) byTramo[t]={s:new Set(),a:0};byTramo[t].s.add(l.id+'_'+l.via);byTramo[t].a++;});
+  document.getElementById('rpt-tramos-body').innerHTML = Object.entries(byTramo).length
+    ? Object.entries(byTramo).map(([t,d])=>`<tr><td>${t}</td><td>${d.s.size}</td><td>${d.a}</td></tr>`).join('')
+    : '<tr><td colspan="3" style="color:var(--text3);text-align:center">Sin registros de sesión</td></tr>';
+  // By activity
+  const byAct = {};
+  dailySessionLog.forEach(l=>{ byAct[l.activity]=(byAct[l.activity]||0)+1; });
+  document.getElementById('rpt-acts-body').innerHTML = ACTS.map(a=>`<tr><td>${a.label}</td><td>${byAct[a.key]||0}</td></tr>`).join('');
+  document.getElementById('rpt-modal').classList.add('open');
+}
+
+function closeReport() { document.getElementById('rpt-modal').classList.remove('open'); }
+
+function exportReportPDF() {
+  window.print();
 }
 
 // ============================================================
