@@ -2691,33 +2691,84 @@ async function saveModal() {
 
 async function saveModalWithVehicle() {
   if (isViewerMode) { showToast('Modo visor: edición deshabilitada', true); return; }
-  if (saveModalWithVehicle._saving) return;          // anti-double-fire guard
+  if (saveModalWithVehicle._saving) return;
+  const s = modalSoporte;
+  if (!s) return;
+
+  // Calcular qué actividades cambian ANTES de abrir ningún modal
+  const pendingUpdates = {};
+  let hasNewlyMarked = false;
+  let hasUnmarked    = false;
+  ACTS.forEach(a => {
+    const el = document.querySelector(`[data-act="${a.key}"]`);
+    if (!el) return;
+    const newVal = el.classList.contains('done') ? 1 : 0;
+    if (s[a.key] !== newVal) {
+      pendingUpdates[a.key] = newVal;
+      if (newVal === 1) hasNewlyMarked = true;
+      else              hasUnmarked    = true;
+    }
+  });
+
+  const comment = document.getElementById('modal-comment').value;
+  if (comment !== s.comentario) pendingUpdates.comentario = comment;
+
+  // Si no hay nada que guardar, salir silenciosamente
+  if (!Object.keys(pendingUpdates).length) {
+    closeModal(); return;
+  }
+
+  // ── Caso 1: sólo desmarcados (corrección de error) ──────────────────────
+  // No preguntamos vehículo; pedimos confirmación de la reversión.
+  if (!hasNewlyMarked && hasUnmarked) {
+    const acts = Object.entries(pendingUpdates)
+      .filter(([k,v]) => ACTS.find(a=>a.key===k) && v===0)
+      .map(([k]) => ACTS.find(a=>a.key===k)?.label)
+      .filter(Boolean).join(', ');
+    const msg = `¿Confirmar CORRECCIÓN de error en soporte ${s.id}?\n\nSe desmarcará: ${acts}\nEl avance se reducirá. Esta acción queda registrada.`;
+
+    saveModalWithVehicle._saving = true;
+    requestUncheck(msg, async () => {
+      saveModalWithVehicle._saving = false;
+      Object.assign(s, pendingUpdates);
+      if (pendingUpdates.comentario !== undefined) s.comentario = pendingUpdates.comentario;
+      recomputePct(s);
+      s.fecha_update = formatDateTimeLima(new Date());
+      s.actualizado_por = document.getElementById('f-user').value || 'web';
+      await saveToServer(s, pendingUpdates);
+      closeModal();
+      refreshDashboard();
+      renderMapKpiStrip();
+      updateTimestamp(s.fecha_update);
+      showToast(`✓ Corrección guardada · ${s.id}`);
+    });
+    return;
+  }
+
+  // ── Caso 2: hay actividades nuevas (o mezcla) → pedir vehículo ──────────
   saveModalWithVehicle._saving = true;
   openVehicleModal(async vehicle => {
     saveModalWithVehicle._saving = false;
-    const s = modalSoporte;
-    if (!s) return;
-    const updates = {};
+    // Apply all updates to soporte state
     ACTS.forEach(a => {
       const el = document.querySelector(`[data-act="${a.key}"]`);
-      if (el) {
-        const newVal = el.classList.contains('done') ? 1 : 0;
-        if (s[a.key] !== newVal) {
-          updates[a.key] = newVal;
-          if (newVal === 1) {
-            dailySessionLog.push({id:s.id,via:s.via,activity:a.key,ts:new Date().toISOString(),vehicle,tramo:s.tramo});
-          }
+      if (!el) return;
+      const newVal = el.classList.contains('done') ? 1 : 0;
+      if (s[a.key] !== newVal) {
+        pendingUpdates[a.key] = newVal;
+        if (newVal === 1 && vehicle) {
+          dailySessionLog.push({id:s.id, via:s.via, activity:a.key,
+            ts:new Date().toISOString(), vehicle, tramo:s.tramo});
         }
-        s[a.key] = newVal;
       }
+      s[a.key] = newVal;
     });
-    const comment = document.getElementById('modal-comment').value;
-    if (comment !== s.comentario) { updates.comentario = comment; s.comentario = comment; }
-    if (vehicle) { updates.vehiculo = vehicle; s.vehiculo = vehicle; }
+    if (comment !== s.comentario) { pendingUpdates.comentario = comment; s.comentario = comment; }
+    if (vehicle) { pendingUpdates.vehiculo = vehicle; s.vehiculo = vehicle; }
     recomputePct(s);
     s.fecha_update = formatDateTimeLima(new Date());
     s.actualizado_por = document.getElementById('f-user').value || 'web';
-    await saveToServer(s, updates);
+    await saveToServer(s, pendingUpdates);
     closeModal();
     refreshDashboard();
     renderMapKpiStrip();
