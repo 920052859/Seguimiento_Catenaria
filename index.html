@@ -784,6 +784,9 @@ tbody td{padding:6px 10px;vertical-align:middle;white-space:nowrap}
   <div class="tt-acts" id="tt-acts"></div>
 </div>
 
+<!-- VEHICLE TOOLTIP -->
+<div id="vehicle-tooltip" style="display:none;position:fixed;background:rgba(10,15,30,.97);border:1.5px solid #f97316;border-radius:10px;padding:12px 16px;font-size:.78rem;color:var(--text);pointer-events:none;z-index:160;min-width:220px;max-width:300px;box-shadow:0 8px 28px rgba(0,0,0,.6)"></div>
+
 <!-- CONFIRM DIALOG -->
 <div class="confirm-bg" id="confirm-bg">
   <div class="confirm-box">
@@ -1211,7 +1214,6 @@ function alignmentOffsetAt(km) {
 
 function renderMap() {
   if (currentTab !== 'map') return;
-
   const W = canvas.offsetWidth;
   const H = 440;
   canvas.width = W;
@@ -1616,6 +1618,12 @@ function setVehiclePosition(vehicleName, soporte) {
     ts: formatDateTimeLima(new Date()),
     tramo: soporte.tramo || ''
   };
+  // Guardar en localStorage (persiste entre recargas sin necesitar Sheets)
+  try {
+    const local = JSON.parse(localStorage.getItem('cat_vehicle_positions') || '{}');
+    local[vehicleName] = vehiclePositions[vehicleName];
+    localStorage.setItem('cat_vehicle_positions', JSON.stringify(local));
+  } catch(_) {}
   // Persist to Sheets async (fire and forget)
   if (!USE_LOCAL_DATA && !usingLocalFallback && APPS_SCRIPT_URL) {
     fetch(APPS_SCRIPT_URL, {method:'POST', body: JSON.stringify({
@@ -1631,23 +1639,39 @@ function setVehiclePosition(vehicleName, soporte) {
 }
 
 async function loadVehiclePositions() {
-  if (USE_LOCAL_DATA || usingLocalFallback || !APPS_SCRIPT_URL) return;
+  // 1. Cargar desde localStorage como cache inmediato (visible antes del fetch)
+  try {
+    const local = JSON.parse(localStorage.getItem('cat_vehicle_positions') || '{}');
+    Object.entries(local).forEach(([name, pos]) => {
+      if (!vehiclePositions[name]) vehiclePositions[name] = pos;
+    });
+    if (Object.keys(vehiclePositions).length) drawVehiclePositions();
+  } catch(_) {}
+
+  if (USE_LOCAL_DATA || usingLocalFallback || !APPS_SCRIPT_URL) {
+    drawVehiclePositions(); return;
+  }
+  // 2. Luego sincronizar desde Sheets (siempre sobreescribe — datos frescos)
   try {
     const r = await fetch(`${APPS_SCRIPT_URL}?action=vehicle_positions`);
     const d = await r.json();
     if (d.ok && d.positions) {
       Object.entries(d.positions).forEach(([name, pos]) => {
-        if (!vehiclePositions[name]) {
-          vehiclePositions[name] = {
-            id: pos.soporte_id, via: pos.via,
-            km: Number(pos.km) || 0,
-            ts: pos.fecha_update, tramo: ''
-          };
-        }
+        vehiclePositions[name] = {
+          id:   pos.soporte_id || '',
+          via:  pos.via || 1,
+          km:   Number(pos.km) || 0,
+          ts:   pos.fecha_update || '',
+          tramo: pos.tramo || ''
+        };
       });
+      // Guardar en localStorage como cache para próxima carga
+      try { localStorage.setItem('cat_vehicle_positions', JSON.stringify(vehiclePositions)); } catch(_) {}
       drawVehiclePositions();
     }
-  } catch(_) {}
+  } catch(_) {
+    drawVehiclePositions(); // muestra lo que haya en memoria
+  }
 }
 
 function drawVehiclePositions() {
@@ -2121,6 +2145,92 @@ function setupSPITooltip() {
   canvas.addEventListener('mouseleave', canvas._spiLeave);
 }
 
+function findVehicleAt(clientX, clientY, radius=28) {
+  if (!canvas || !Object.keys(vehiclePositions).length) return null;
+  const rect = canvas.getBoundingClientRect();
+  const cx = (clientX - rect.left) * (canvas.width / rect.width);
+  const cy = (clientY - rect.top)  * (canvas.height / rect.height);
+  const W = canvas.width, H = canvas.height;
+  const src = (filtered && filtered.length > 0) ? filtered : allSoportes;
+  const validKm = src.map(s=>Number(s.km)||0).filter(k=>k>0);
+  if (!validKm.length) return null;
+  const kmMin=Math.min(...validKm), kmMax=Math.max(...validKm), kmRange=kmMax-kmMin||1;
+  const MARGIN=72, USABLE_W=(W-MARGIN*2)*mapScale;
+  const toX = km => MARGIN + ((km-kmMin)/kmRange)*USABLE_W + mapOffsetX;
+  const VIA1_RAIL_Y = H/2 - 10 - 18;
+  const VIA2_RAIL_Y = H/2 + 10 + 18;
+  const VIA2_WALL_Y = H - 30 - 20;
+  const V1_MID = ((H/2-10)/2*0.12+30+20 + VIA1_RAIL_Y) / 2;
+  const V2_MID = (VIA2_RAIL_Y + VIA2_WALL_Y) / 2;
+
+  for (const [name, pos] of Object.entries(vehiclePositions)) {
+    if (!pos.km) continue;
+    const x = toX(Number(pos.km));
+    const via = Number(pos.via) || 1;
+    const y = via === 2 ? V2_MID : V1_MID;
+    const dx = cx - x, dy = cy - y;
+    if (Math.sqrt(dx*dx + dy*dy) <= radius) return {name, pos, cfg:VEHICLES[name]||{}};
+  }
+  return null;
+}
+
+function showVehicleTooltip(vehicle, clientX, clientY) {
+  const tt = document.getElementById('vehicle-tooltip');
+  if (!tt) return;
+  if (!vehicle) { tt.style.display='none'; return; }
+  const {name, pos, cfg} = vehicle;
+  const isSky = name.toLowerCase().includes('sky');
+  const isBivial = name.toLowerCase().includes('biv');
+  const typeLabel = isSky ? 'Plataforma elevadora boom' : isBivial ? 'Camión grúa bivial (bimodal)' : 'Vehículo ferroviario';
+  const pkKm = pos.km ? (Number(pos.km)/1000).toFixed(3) : '--';
+  const bgColor = (cfg.color || '#f97316') + '22';
+
+  // Count today's activity from session log
+  const todayActs = dailySessionLog.filter(l=>l.vehicle===name).length;
+  const todaySupports = new Set(dailySessionLog.filter(l=>l.vehicle===name).map(l=>`${l.id}_${l.via}`)).size;
+
+  tt.style.borderColor = cfg.color || '#f97316';
+  tt.innerHTML = `
+    <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;border-bottom:1px solid rgba(255,255,255,.08);padding-bottom:8px">
+      <div style="width:10px;height:10px;border-radius:50%;background:${cfg.color};flex-shrink:0"></div>
+      <b style="color:${cfg.color};font-size:.9rem">${name}</b>
+    </div>
+    <div style="font-size:.7rem;color:var(--text3);margin-bottom:6px;text-transform:uppercase;letter-spacing:.8px">${typeLabel}</div>
+    <div style="display:flex;flex-direction:column;gap:5px;font-size:.76rem">
+      <div style="display:flex;justify-content:space-between">
+        <span style="color:var(--text3)">📍 Posición PK</span>
+        <b style="color:var(--text)">${pkKm} km</b>
+      </div>
+      <div style="display:flex;justify-content:space-between">
+        <span style="color:var(--text3)">🛤 Vía</span>
+        <b style="color:${Number(pos.via)===2?'#34d399':'#60a5fa'}">Vía ${pos.via||'?'}</b>
+      </div>
+      <div style="display:flex;justify-content:space-between">
+        <span style="color:var(--text3)">🔩 Último soporte</span>
+        <b style="color:var(--accent)">${pos.id||'--'}</b>
+      </div>
+      ${pos.tramo ? `<div style="display:flex;justify-content:space-between"><span style="color:var(--text3)">📌 Tramo</span><b>${pos.tramo}</b></div>` : ''}
+      <div style="display:flex;justify-content:space-between">
+        <span style="color:var(--text3)">⏱ Actualizado</span>
+        <span style="color:var(--text2)">${pos.ts||'--'}</span>
+      </div>
+      ${todayActs > 0 ? `
+      <div style="margin-top:6px;padding-top:6px;border-top:1px solid rgba(255,255,255,.07)">
+        <div style="color:var(--text3);margin-bottom:3px">Actividad hoy (esta sesión)</div>
+        <div style="display:flex;gap:12px">
+          <span><b style="color:var(--green)">${todaySupports}</b> <span style="color:var(--text3)">soportes</span></span>
+          <span><b style="color:var(--accent)">${todayActs}</b> <span style="color:var(--text3)">actividades</span></span>
+        </div>
+      </div>` : ''}
+    </div>`;
+
+  tt.style.display = 'block';
+  const l = Math.min(window.innerWidth - 320, clientX + 16);
+  const t = Math.min(window.innerHeight - 300, Math.max(8, clientY - 30));
+  tt.style.left = l + 'px';
+  tt.style.top  = t + 'px';
+}
+
 function findMapSoporteAt(clientX, clientY, radius=16) {
   const rect = canvas.getBoundingClientRect();
   const cx = (clientX - rect.left) * (canvas.width / rect.width);
@@ -2186,11 +2296,21 @@ function setupMapEvents() {
   canvas.addEventListener('mousemove', e => {
     if (isDragging) {
       document.getElementById('map-tooltip').style.display='none';
+      document.getElementById('vehicle-tooltip').style.display='none';
       mapOffsetX = e.clientX - dragStart.x;
       mapOffsetX = Math.min(0, Math.max(-(canvas.width*(mapScale-1)), mapOffsetX));
       renderMap();
       return;
     }
+    // Check vehicle first (larger hit area)
+    const hovVeh = findVehicleAt(e.clientX, e.clientY, 30);
+    if (hovVeh) {
+      canvas.style.cursor = 'crosshair';
+      document.getElementById('map-tooltip').style.display='none';
+      showVehicleTooltip(hovVeh, e.clientX, e.clientY);
+      return;
+    }
+    document.getElementById('vehicle-tooltip').style.display='none';
     const hovered = findMapSoporteAt(e.clientX, e.clientY, 16);
     canvas.style.cursor = hovered ? 'pointer' : 'grab';
     showMapTooltip(hovered, e.clientX, e.clientY);
@@ -2202,6 +2322,7 @@ function setupMapEvents() {
   canvas.addEventListener('mouseleave', () => {
     isDragging = false;
     document.getElementById('map-tooltip').style.display='none';
+    document.getElementById('vehicle-tooltip').style.display='none';
   });
   
   // Touch
