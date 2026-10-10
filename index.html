@@ -439,6 +439,7 @@ tbody td{padding:6px 10px;vertical-align:middle;white-space:nowrap}
   <div class="tab" onclick="switchTab('kpi')">📊 KPIs y Avance</div>
   <div class="tab" onclick="switchTab('table')">📋 Tabla Soportes</div>
   <div class="tab" onclick="switchTab('history')">📅 Histórico</div>
+  <div class="tab" onclick="switchTab('flota')">🚧 Flota</div>
   <div class="tab-mode-toggle" id="mode-toggle" onclick="requestEditorMode()">✏ Editor</div>
 </div>
 
@@ -656,6 +657,48 @@ tbody td{padding:6px 10px;vertical-align:middle;white-space:nowrap}
           <th>Soportes completados</th>
         </tr></thead>
         <tbody id="history-body"></tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<!-- FLOTA TAB — ubicaciones en tiempo real de los vehiculos ferroviarios -->
+<div id="tab-flota" style="display:none;padding:16px 20px">
+  <div class="section-title">Ubicación de Flota Ferroviaria</div>
+
+  <!-- Mini mapa de posiciones -->
+  <div class="map-wrap" style="margin-bottom:16px">
+    <div class="map-toolbar" style="gap:8px">
+      <span style="font-size:.8rem;color:var(--text2);font-weight:600">📍 Posiciones actuales sobre el trazado</span>
+      <button class="btn btn-secondary allow-viewer" onclick="refreshFlota()" style="margin-left:auto">↻ Actualizar</button>
+      <span id="flota-ts" style="font-size:.68rem;color:var(--text3)"></span>
+    </div>
+    <canvas id="flota-canvas" height="200" style="width:100%;background:#0a0f1e;display:block;border-radius:0 0 10px 10px"></canvas>
+  </div>
+
+  <!-- Tarjetas por vehículo -->
+  <div id="flota-cards" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:12px;margin-bottom:16px"></div>
+
+  <!-- Tabla de movimientos del dia -->
+  <div class="section-title">Actividad de flota hoy</div>
+  <div class="table-wrap">
+    <div style="padding:10px 14px;display:flex;gap:10px;align-items:center;background:var(--bg3)">
+      <span style="font-size:.78rem;color:var(--text2)">Registros de Log_Diario con vehículo asignado</span>
+      <button class="btn btn-secondary allow-viewer" onclick="refreshFlota()" style="font-size:.72rem">↻</button>
+    </div>
+    <div style="overflow-x:auto">
+      <table style="width:100%;border-collapse:collapse;font-size:.76rem">
+        <thead><tr>
+          <th style="padding:7px 10px;background:var(--bg3);color:var(--text3);text-align:left">Hora</th>
+          <th>Vehículo</th>
+          <th>Soporte</th>
+          <th>Vía</th>
+          <th>Tramo</th>
+          <th>Actividad</th>
+          <th>%</th>
+          <th>Usuario</th>
+        </tr></thead>
+        <tbody id="flota-log-body"><tr><td colspan="8" style="text-align:center;padding:20px;color:var(--text3)">Cargando…</td></tr></tbody>
       </table>
     </div>
   </div>
@@ -1008,16 +1051,17 @@ function applyFilters() {
 // ============================================================
 function switchTab(name) {
   currentTab = name;
-  ['map','kpi','table','history'].forEach(t => {
+  ['map','kpi','table','history','flota'].forEach(t => {
     document.getElementById('tab-'+t).style.display = t === name ? '' : 'none';
   });
   document.querySelectorAll('.tab').forEach((el,i) => {
-    el.classList.toggle('active', ['map','kpi','table','history'][i] === name);
+    el.classList.toggle('active', ['map','kpi','table','history','flota'][i] === name);
   });
   if (name === 'map') renderMap();
   if (name === 'history') renderHistory();
   if (name === 'kpi') { setTimeout(renderSPI, 120); }
   if (name === 'kpi') { setTimeout(setupSPITooltip, 250); }
+  if (name === 'flota') renderFlota();
 }
 
 // ============================================================
@@ -1611,46 +1655,101 @@ function drawVehiclePositions() {
   if (!c) return;
   const ctx = c.getContext('2d');
   const W = c.width, H = c.height;
-  if (!W) return;
-  const src = filtered.length > 0 ? filtered : allSoportes;
+  if (!W || !H) return;
+  const src = (filtered && filtered.length > 0) ? filtered : allSoportes;
   const validKm = src.map(s=>Number(s.km)||0).filter(k=>k>0);
   if (!validKm.length) return;
   const kmMin=Math.min(...validKm), kmMax=Math.max(...validKm), kmRange=kmMax-kmMin||1;
   const MARGIN=72, USABLE_W=(W-MARGIN*2)*mapScale;
   const toX = km => MARGIN + ((km-kmMin)/kmRange)*USABLE_W + mapOffsetX;
 
+  // Via zones (mirror of renderMap)
+  const VIA1_WALL_Y  = (H/2 - 10)/2 * 0.12 + 30 + 20;   // ≈ wall top
+  const VIA1_RAIL_Y  = H/2 - 10 - 18;                     // ≈ rail level Via1
+  const VIA2_RAIL_Y  = H/2 + 10 + 18;                     // ≈ rail level Via2
+  const VIA2_WALL_Y  = H - 30 - 20;                        // ≈ wall bottom
+  // Mid-zone per via: vehicles sit between wall and rail
+  const V1_MID = (VIA1_WALL_Y + VIA1_RAIL_Y) / 2;
+  const V2_MID = (VIA2_RAIL_Y + VIA2_WALL_Y) / 2;
+
   Object.entries(vehiclePositions).forEach(([name, pos]) => {
     const cfg = VEHICLES[name];
     if (!cfg || !pos.km) return;
-    const x = toX(pos.km);
-    if (x<0 || x>W) return;
-    // Train icon on top edge
-    const y = 20;
+    const x = toX(Number(pos.km));
+    if (x < 0 || x > W) return;
+
+    // Place in correct Via zone
+    const via = Number(pos.via) || 1;
+    const baseY = via === 2 ? V2_MID : V1_MID;
+    const isSky = name.toLowerCase().includes('sky');
+    const isBivial = name.toLowerCase().includes('biv');
+
     ctx.save();
-    ctx.fillStyle = cfg.color;
-    ctx.globalAlpha = 0.9;
-    ctx.beginPath();
-    ctx.roundRect(x-20, y-8, 40, 16, 4);
-    ctx.fill();
-    // Icono diferenciado: Sky=plataforma, Bivial=camion
-    const icon = name.startsWith('Sky') ? '⬆ SKY' : '⬅ BV';
-    ctx.fillStyle = '#0a0f1e';
-    ctx.font = 'bold 7px Segoe UI';
-    ctx.textAlign = 'center';
-    ctx.fillText(icon.split(' ')[1] || name.slice(0,3), x, y+2);
-    // Timestamp pequeño
-    if (pos.ts) {
-      ctx.globalAlpha = 0.6;
-      ctx.font = '6px Segoe UI';
-      ctx.fillStyle = '#fff';
-      ctx.fillText(String(pos.ts).slice(-5), x, y+10);
-      ctx.globalAlpha = 1;
+    ctx.globalAlpha = 0.92;
+
+    if (isSky) {
+      // Plataforma elevadora: cuadrado base + brazo articulado + canastilla
+      const bw=14, bh=8, armH=20;
+      // Base (camion pequeño)
+      ctx.fillStyle = cfg.color;
+      ctx.beginPath(); ctx.roundRect(x-bw/2, baseY-bh/2, bw, bh, 3); ctx.fill();
+      // Ruedas
+      ctx.fillStyle='#374151';
+      [x-5,x+5].forEach(wx=>{ ctx.beginPath(); ctx.arc(wx,baseY+bh/2+2,3,0,Math.PI*2); ctx.fill(); });
+      // Brazo vertical (mástil)
+      ctx.strokeStyle='#d1d5db'; ctx.lineWidth=1.5;
+      ctx.beginPath(); ctx.moveTo(x,baseY-bh/2); ctx.lineTo(x,baseY-bh/2-armH); ctx.stroke();
+      // Brazo articulado diagonal
+      ctx.beginPath(); ctx.moveTo(x,baseY-bh/2-armH); ctx.lineTo(x+10,baseY-bh/2-armH-6); ctx.stroke();
+      // Canastilla (naranja)
+      ctx.fillStyle=cfg.color;
+      ctx.beginPath(); ctx.roundRect(x+6,baseY-bh/2-armH-12,12,8,2); ctx.fill();
+      ctx.strokeStyle='#fff'; ctx.lineWidth=.8;
+      ctx.strokeRect(x+6,baseY-bh/2-armH-12,12,8);
+      // Nombre
+      ctx.fillStyle='#fff'; ctx.font='bold 6px Segoe UI'; ctx.textAlign='center';
+      ctx.fillText(name,x,baseY+bh/2+10);
+    } else if (isBivial) {
+      // Camion grua bivi: cuerpo de camion + cabina + pluma grua + rieles
+      const tw=28, th=12;
+      // Rieles bajo el camion
+      ctx.strokeStyle='#6b7280'; ctx.lineWidth=1.5;
+      [-3,3].forEach(ry=>{ ctx.beginPath(); ctx.moveTo(x-tw/2-4,baseY+th/2+ry); ctx.lineTo(x+tw/2+4,baseY+th/2+ry); ctx.stroke(); });
+      // Ruedas en riel
+      ctx.fillStyle='#374151';
+      [-tw/3,0,tw/3].forEach(wx=>{ ctx.beginPath(); ctx.arc(x+wx,baseY+th/2,4,0,Math.PI*2); ctx.fill(); });
+      // Cuerpo principal del camion
+      ctx.fillStyle=cfg.color;
+      ctx.beginPath(); ctx.roundRect(x-tw/2,baseY-th/2,tw,th,3); ctx.fill();
+      // Cabina (delantera)
+      ctx.fillStyle='#ca8a04';
+      ctx.beginPath(); ctx.roundRect(x+tw/2-10,baseY-th/2-6,10,th+6,2); ctx.fill();
+      // Pluma grua (arriba)
+      ctx.strokeStyle='#fbbf24'; ctx.lineWidth=2;
+      ctx.beginPath(); ctx.moveTo(x,baseY-th/2); ctx.lineTo(x+8,baseY-th/2-16); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(x+8,baseY-th/2-16); ctx.lineTo(x+tw/2,baseY-th/2); ctx.stroke();
+      // Gancho
+      ctx.beginPath(); ctx.arc(x+14,baseY-th/2-12,3,0,Math.PI); ctx.stroke();
+      // Nombre
+      ctx.fillStyle='#fff'; ctx.font='bold 6px Segoe UI'; ctx.textAlign='center';
+      ctx.fillText('Bivial',x,baseY+th/2+14);
     }
-    // Arrow down
-    ctx.fillStyle = cfg.color;
-    ctx.beginPath();
-    ctx.moveTo(x-4, y+8); ctx.lineTo(x+4, y+8); ctx.lineTo(x, y+15);
-    ctx.closePath(); ctx.fill();
+
+    // Timestamp
+    if (pos.ts) {
+      ctx.fillStyle='rgba(255,255,255,.55)'; ctx.font='5.5px Segoe UI'; ctx.textAlign='center';
+      const tStr = String(pos.ts);
+      const hhmm = tStr.slice(-5).replace('/',':');
+      ctx.fillText(hhmm, x, baseY - (isSky?42:30));
+    }
+
+    // PK indicator line from icon to rail
+    ctx.strokeStyle = cfg.color; ctx.lineWidth=1; ctx.globalAlpha=0.35;
+    ctx.setLineDash([2,3]);
+    const railY = via===2 ? VIA2_RAIL_Y : VIA1_RAIL_Y;
+    ctx.beginPath(); ctx.moveTo(x,baseY+(isSky?10:14)); ctx.lineTo(x,railY); ctx.stroke();
+    ctx.setLineDash([]);
+
     ctx.restore();
   });
 }
@@ -2607,6 +2706,179 @@ function closeReport() { document.getElementById('rpt-modal').classList.remove('
 
 function exportReportPDF() {
   window.print();
+}
+
+async function refreshFlota() {
+  await loadVehiclePositions();
+  renderFlota();
+}
+
+async function renderFlota() {
+  // Refresh shared positions from Sheets first
+  await loadVehiclePositions();
+  // Render mini map
+  renderFlotaMap();
+  // Render vehicle cards
+  renderFlotaCards();
+  // Render today's log
+  await renderFlotaLog();
+  document.getElementById('flota-ts').textContent = 'Actualizado: ' + formatDateTimeLima(new Date());
+}
+
+function renderFlotaMap() {
+  const c = document.getElementById('flota-canvas');
+  if (!c) return;
+  const W = c.offsetWidth || 800;
+  const H = 200;
+  c.width = W; c.height = H;
+  const ctx = c.getContext('2d');
+  ctx.fillStyle = '#0a0f1e'; ctx.fillRect(0,0,W,H);
+
+  const src = allSoportes;
+  const validKm = src.map(s=>Number(s.km)||0).filter(k=>k>0);
+  if (!validKm.length) { ctx.fillStyle='#64748b'; ctx.font='12px Segoe UI'; ctx.textAlign='center'; ctx.fillText('Sin datos de soportes', W/2, H/2); return; }
+  const kmMin=Math.min(...validKm), kmMax=Math.max(...validKm), kmRange=kmMax-kmMin||1;
+  const MARGIN=60, USABLE_W=W-MARGIN*2;
+  const toX = km => MARGIN + ((km-kmMin)/kmRange)*USABLE_W;
+
+  // Background zones
+  const V1Y=H*0.18, V1H=H*0.32, V2Y=H*0.52, V2H=H*0.32;
+  ctx.fillStyle='rgba(30,37,53,.7)'; ctx.fillRect(MARGIN,V1Y,USABLE_W,V1H);
+  ctx.fillStyle='rgba(30,37,53,.7)'; ctx.fillRect(MARGIN,V2Y,USABLE_W,V2H);
+  ctx.fillStyle='rgba(148,163,184,.55)'; ctx.font='bold 9px Segoe UI'; ctx.textAlign='left';
+  ctx.fillText('VÍA 1',4,V1Y+V1H/2+3);
+  ctx.fillText('VÍA 2',4,V2Y+V2H/2+3);
+
+  // Rail lines
+  [[V1Y+V1H-6,'#60a5fa'],[V2Y+6,'#34d399']].forEach(([y,c2])=>{
+    ctx.strokeStyle=c2; ctx.lineWidth=2;
+    ctx.beginPath(); ctx.moveTo(MARGIN,y); ctx.lineTo(MARGIN+USABLE_W,y); ctx.stroke();
+  });
+
+  // PK labels
+  [11,12,13,14,15,16,17,18,19].forEach(pk=>{
+    const km=pk*1000; const x=toX(km);
+    if(x<MARGIN||x>MARGIN+USABLE_W) return;
+    ctx.strokeStyle='rgba(99,102,241,.3)'; ctx.lineWidth=1; ctx.setLineDash([3,4]);
+    ctx.beginPath(); ctx.moveTo(x,V1Y); ctx.lineTo(x,V2Y+V2H); ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.fillStyle='rgba(129,140,248,.8)'; ctx.font='8px Segoe UI'; ctx.textAlign='center';
+    ctx.fillText('E'+pk,x,V1Y-3);
+  });
+  ctx.fillStyle='rgba(0,198,255,.7)'; ctx.font='8px Segoe UI'; ctx.textAlign='left'; ctx.fillText('← Callao',MARGIN,V1Y-3);
+  ctx.textAlign='right'; ctx.fillStyle='rgba(34,197,94,.7)'; ctx.fillText('Ate →',MARGIN+USABLE_W,V1Y-3);
+
+  // Draw vehicles
+  Object.entries(vehiclePositions).forEach(([name, pos]) => {
+    const cfg = VEHICLES[name];
+    if (!cfg || !pos.km) return;
+    const x = toX(Number(pos.km));
+    if (x<MARGIN || x>MARGIN+USABLE_W) return;
+    const via = Number(pos.via) || 1;
+    const midY = via===2 ? V2Y+V2H/2 : V1Y+V1H/2;
+    const isSky = name.toLowerCase().includes('sky');
+
+    ctx.save();
+    ctx.globalAlpha = 0.95;
+
+    if (isSky) {
+      // Compact boom lift icon
+      ctx.fillStyle = cfg.color;
+      ctx.beginPath(); ctx.roundRect(x-8,midY-4,16,8,2); ctx.fill();
+      ctx.strokeStyle='#d1d5db'; ctx.lineWidth=1.2;
+      ctx.beginPath(); ctx.moveTo(x,midY-4); ctx.lineTo(x+6,midY-14); ctx.stroke();
+      ctx.fillStyle=cfg.color; ctx.beginPath(); ctx.roundRect(x+4,midY-18,10,6,1); ctx.fill();
+    } else {
+      // Compact truck+crane icon
+      ctx.fillStyle = cfg.color;
+      ctx.beginPath(); ctx.roundRect(x-12,midY-5,24,10,2); ctx.fill();
+      ctx.strokeStyle='#fbbf24'; ctx.lineWidth=1.5;
+      ctx.beginPath(); ctx.moveTo(x-4,midY-5); ctx.lineTo(x+6,midY-16); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(x+6,midY-16); ctx.lineTo(x+12,midY-5); ctx.stroke();
+    }
+
+    // Label + KM
+    ctx.fillStyle='#fff'; ctx.font='bold 7px Segoe UI'; ctx.textAlign='center';
+    ctx.fillText(name, x, midY+(isSky?18:20));
+    ctx.fillStyle='rgba(255,255,255,.5)'; ctx.font='6px Segoe UI';
+    ctx.fillText('PK '+(Number(pos.km)/1000).toFixed(2), x, midY+(isSky?26:28));
+
+    // Via line
+    const railY = via===2 ? V2Y+V2H-6 : V1Y+V1H-6;
+    ctx.strokeStyle=cfg.color; ctx.lineWidth=1; ctx.globalAlpha=0.3;
+    ctx.setLineDash([1,3]); ctx.beginPath(); ctx.moveTo(x,midY+8); ctx.lineTo(x,railY); ctx.stroke(); ctx.setLineDash([]);
+    ctx.restore();
+  });
+
+  if (!Object.keys(vehiclePositions).length) {
+    ctx.fillStyle='#64748b'; ctx.font='11px Segoe UI'; ctx.textAlign='center';
+    ctx.fillText('Sin posiciones de vehículos registradas. Guarda una actualización con vehículo asignado.',W/2,H/2);
+  }
+}
+
+function renderFlotaCards() {
+  const cards = document.getElementById('flota-cards');
+  if (!cards) return;
+  if (!Object.keys(vehiclePositions).length) {
+    cards.innerHTML='<div style="color:var(--text3);font-size:.82rem;grid-column:1/-1">Sin datos de vehículos. Marca una actividad y selecciona el vehículo para que aparezca aquí.</div>';
+    return;
+  }
+  cards.innerHTML = Object.entries(VEHICLES).map(([name,cfg]) => {
+    const pos = vehiclePositions[name];
+    const km = pos ? (Number(pos.km)/1000).toFixed(3)+' km' : '--';
+    const via = pos ? 'Vía '+pos.via : '--';
+    const ts  = pos ? pos.ts||'--' : '--';
+    const soporte = pos ? (pos.id||'--') : '--';
+    const isActive = !!pos;
+    return `<div style="background:var(--bg2);border:1px solid ${isActive?cfg.color:'var(--border)'};border-radius:10px;padding:14px 16px">
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px">
+        <div style="width:12px;height:12px;border-radius:50%;background:${cfg.color};${isActive?'':'opacity:.3'}"></div>
+        <b style="color:${isActive?cfg.color:'var(--text3)'};font-size:.92rem">${name}</b>
+        <span style="margin-left:auto;font-size:.65rem;color:var(--text3)">${isActive?'● Activo':'○ Sin datos'}</span>
+      </div>
+      <div style="font-size:.75rem;color:var(--text2);display:flex;flex-direction:column;gap:4px">
+        <span>📍 <b style="color:var(--text)">PK ${km}</b></span>
+        <span>🛤 ${via}</span>
+        <span>🔩 Soporte ${soporte}</span>
+        <span style="color:var(--text3);font-size:.68rem">⏱ ${ts}</span>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+async function renderFlotaLog() {
+  const tbody = document.getElementById('flota-log-body');
+  if (!tbody) return;
+  tbody.innerHTML='<tr><td colspan="8" style="text-align:center;padding:14px;color:var(--text3)">Consultando Google Sheets…</td></tr>';
+
+  let events = [];
+  if (!USE_LOCAL_DATA && !usingLocalFallback && APPS_SCRIPT_URL) {
+    try {
+      const r = await fetch(`${APPS_SCRIPT_URL}?action=daily_report&date=${limaDateKeyClient()}`);
+      const d = await r.json();
+      if (d.ok) events = (d.events||[]).filter(e=>e.vehiculo && e.vehiculo.trim());
+    } catch(_) {}
+  }
+  if (!events.length) {
+    tbody.innerHTML='<tr><td colspan="8" style="text-align:center;padding:14px;color:var(--text3)">Sin movimientos de vehículos hoy</td></tr>';
+    return;
+  }
+  const sorted = [...events].sort((a,b)=>String(b.fecha_update).localeCompare(String(a.fecha_update)));
+  tbody.innerHTML = sorted.map(e => {
+    const cfg = VEHICLES[e.vehiculo]||{color:'#94a3b8'};
+    const acts = Array.isArray(e.actividades) ? e.actividades.join(', ') : e.actividades||'';
+    const hora = String(e.fecha_update||'').slice(-5);
+    return `<tr>
+      <td style="padding:6px 10px;color:var(--text3)">${hora}</td>
+      <td><span style="color:${cfg.color};font-weight:700">${e.vehiculo||'-'}</span></td>
+      <td style="font-family:monospace;color:var(--accent)">${e.id||'-'}</td>
+      <td style="text-align:center">${e.via||'-'}</td>
+      <td>${e.tramo||'-'}</td>
+      <td style="color:var(--text2)">${acts}</td>
+      <td style="color:var(--green);font-weight:700">${Number(e.pct||0).toFixed(1)}%</td>
+      <td style="color:var(--text3)">${e.actualizado_por||'-'}</td>
+    </tr>`;
+  }).join('');
 }
 
 // ============================================================
