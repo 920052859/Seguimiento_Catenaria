@@ -1212,6 +1212,77 @@ function alignmentOffsetAt(km) {
   return 0;
 }
 
+function buildTunnelLabels(src) {
+  const grouped = new Map();
+  src.forEach(s => {
+    const raw = String(s.tunel || '').trim();
+    const match = raw.match(/^Tunel\s+(\d+)$/i);
+    const km = Number(s.km);
+    if (!match || !Number.isFinite(km) || km <= 0) return;
+    const number = Number(match[1]);
+    if (!grouped.has(number)) grouped.set(number, []);
+    grouped.get(number).push(km);
+  });
+
+  return [...grouped.entries()]
+    .sort(([left], [right]) => left - right)
+    .map(([number, kms]) => {
+      const sortedKms = [...kms].sort((left, right) => left - right);
+      const middle = Math.floor(sortedKms.length / 2);
+      const medianKm = sortedKms.length % 2
+        ? sortedKms[middle]
+        : (sortedKms[middle - 1] + sortedKms[middle]) / 2;
+      return {
+        number,
+        label: `Túnel ${number}`,
+        medianKm,
+        samples: sortedKms.length,
+      };
+    });
+}
+
+function drawTunnelLabels(src, kmToX, width, zoneTop, zoneBottom) {
+  const labels = buildTunnelLabels(src);
+  if (!labels.length) return;
+
+  ctx.save();
+  ctx.font = 'bold 9px Segoe UI';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  let lastRightByRow = [-Infinity, -Infinity];
+
+  labels.forEach(tunnel => {
+    const x = kmToX(tunnel.medianKm);
+    if (x < -60 || x > width + 60) return;
+    const textWidth = ctx.measureText(tunnel.label).width;
+    const boxWidth = textWidth + 12;
+    let row = 0;
+    if (x - boxWidth / 2 < lastRightByRow[0] + 5) row = 1;
+    if (x - boxWidth / 2 < lastRightByRow[row] + 5) return;
+    const y = zoneTop - 14 + row * 13;
+
+    ctx.strokeStyle = 'rgba(56,189,248,.18)';
+    ctx.lineWidth = 1;
+    ctx.setLineDash([2, 5]);
+    ctx.beginPath();
+    ctx.moveTo(x, zoneTop);
+    ctx.lineTo(x, zoneBottom);
+    ctx.stroke();
+    ctx.setLineDash([]);
+
+    ctx.fillStyle = 'rgba(8,16,31,.92)';
+    ctx.strokeStyle = 'rgba(0,198,255,.45)';
+    ctx.beginPath();
+    ctx.roundRect(x - boxWidth / 2, y - 6, boxWidth, 12, 5);
+    ctx.fill();
+    ctx.stroke();
+    ctx.fillStyle = 'rgba(165,243,252,.95)';
+    ctx.fillText(tunnel.label, x, y + .5);
+    lastRightByRow[row] = x + boxWidth / 2;
+  });
+  ctx.restore();
+}
+
 function renderMap() {
   if (currentTab !== 'map') return;
   const W = canvas.offsetWidth;
@@ -1349,6 +1420,9 @@ function renderMap() {
     ctx.fillText(st.label,x,VIA1_ZONE_TOP+10);
     ctx.fillText(st.label,x,VIA2_ZONE_BOT-2);
   });
+
+  // --- Tunnel names derived from the source PKs ---
+  drawTunnelLabels(src, kmToX, W, VIA1_ZONE_TOP, VIA2_ZONE_BOT);
 
   // --- Contact wire (catenary line - gentle sag) ---
   function drawCatenaryWire(wireY, color) {
