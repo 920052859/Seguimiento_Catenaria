@@ -778,6 +778,9 @@ tbody td{padding:6px 10px;vertical-align:middle;white-space:nowrap}
   <div class="tt-id" id="tt-id"></div>
   <div class="tt-row"><span>Km</span><b id="tt-km"></b></div>
   <div class="tt-row"><span>Tramo</span><b id="tt-tramo"></b></div>
+  <div class="tt-row"><span>Entorno</span><b id="tt-environment"></b></div>
+  <div class="tt-row"><span>Ubicación</span><b id="tt-location"></b></div>
+  <div class="tt-row"><span>Túnel asociado</span><b id="tt-tunnel"></b></div>
   <div class="tt-row"><span>Tipo</span><b id="tt-tipo"></b></div>
   <div class="tt-row"><span>Estado</span><b id="tt-sit"></b></div>
   <div class="tt-row"><span>Avance</span><b id="tt-pct"></b></div>
@@ -799,6 +802,7 @@ tbody td{padding:6px 10px;vertical-align:middle;white-space:nowrap}
   </div>
 </div>
 
+<script src="./location_utils.js"></script>
 <script>
 // ============================================================
 //  CONFIG - REEMPLAZAR CON TU URL DE APPS SCRIPT
@@ -2340,6 +2344,14 @@ function showMapTooltip(s, clientX, clientY) {
   document.getElementById('tt-id').textContent = `${s.id} · Vía ${s.via}${pkStr}`;
   document.getElementById('tt-km').textContent = s.km ? Number(s.km).toFixed(3) : '-';
   document.getElementById('tt-tramo').textContent = s.tramo || '-';
+  const locationDetail = CatenaryLocation.getSupportLocationDetail(s);
+  const environmentEl = document.getElementById('tt-environment');
+  environmentEl.textContent = locationDetail.environment;
+  environmentEl.style.color = locationDetail.environment === 'Estación'
+    ? 'var(--yellow)'
+    : locationDetail.environment === 'Túnel' ? 'var(--accent)' : 'var(--text3)';
+  document.getElementById('tt-location').textContent = locationDetail.location;
+  document.getElementById('tt-tunnel').textContent = locationDetail.tunnel;
   document.getElementById('tt-tipo').textContent = s.tipo || '-';
   document.getElementById('tt-sit').textContent = s.situacion || 'Normal';
   document.getElementById('tt-pct').textContent = `${s.pct}%`;
@@ -2352,7 +2364,7 @@ function showMapTooltip(s, clientX, clientY) {
   ).join('') + updated + veh;
   tt.style.display='block';
   const left = Math.min(window.innerWidth-245, clientX+14);
-  const top = Math.min(window.innerHeight-240, clientY+14);
+  const top = Math.min(window.innerHeight-320, clientY+14);
   tt.style.left=left+'px'; tt.style.top=top+'px';
 }
 

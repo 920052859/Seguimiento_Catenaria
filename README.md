@@ -7,6 +7,7 @@
 - Zoom hasta 120x y dibujo progresivo de cada estructura según sus 7 actividades.
 - Alineamiento curvo obtenido de 82 puntos PK extraídos del DWG del proyecto.
 - Etiquetas de Túnel 6 a Túnel 14 en la vista gráfica, posicionadas por la mediana de los PK registrados y distribuidas en dos filas para evitar solapes en móvil.
+- Tooltip de cada soporte al pasar el mouse: identifica si está en túnel o estación, muestra la ubicación exacta y el túnel asociado.
 - Vista Editor: `?mode=editor` (edición, comentarios y snapshots).
 - Vista Visor: `?mode=viewer` (consulta sin controles de escritura en la interfaz).
 - Histórico semanal compartido en la hoja `Historico`, con gráfico de tendencia.
