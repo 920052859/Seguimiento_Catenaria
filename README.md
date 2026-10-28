@@ -200,6 +200,40 @@ Para restringir acceso: cambia el repo a Private y usa GitHub Pro
 
 ---
 
+## CURVA S Y RESPALDO DE DATOS
+
+El tablero lee en línea la pestaña `Soportes` y mantiene `soportes.json` como respaldo de solo lectura. El respaldo incluye `Etapa` y `ubicacion`:
+
+```bash
+python sync_supports_fallback.py "C:/ruta/google_token.json" soportes.json
+```
+
+La curva planificada se genera desde el Excel de cronograma OCS sin publicar el libro original:
+
+```bash
+python extract_schedule.py "C:/ruta/Curva_S_x_d_as_OCS.xlsx" schedule_curve.json
+```
+
+Criterio comparable:
+
+- Perforación → Taladro de Bóveda de Túnel.
+- Fijación → Montaje de Espárragos.
+- Soporte, ménsula y aislador estándar → Montaje de Tubo + Estribo + Suspensión; el aislador queda identificado como proxy provisional.
+- Perfil → Montaje de Perfil CR.
+- Hilo → Tendido de Hilo de Contacto.
+- Estaciones y Tramo 2 quedan fuera de cobertura hasta disponer de una línea base equivalente.
+- La página muestra cobertura por etapa/túnel y no mezcla snapshots globales históricos con curvas filtradas.
+
+Verificación:
+
+```bash
+node test_schedule_utils.js
+python test_stage_schedule_ui.py
+node --check kpi_schedule_utils.js
+```
+
+---
+
 ## PREGUNTAS FRECUENTES
 
 P: Alguien actualizo algo y no me aparece

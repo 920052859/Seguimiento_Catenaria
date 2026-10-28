@@ -1,0 +1,386 @@
+{
+  "schema_version": 2,
+  "source_filename": "doc_fc9577d4afc1_Curva_S_x_d_as_OCS.xlsx",
+  "basis": "Cronograma detallado por túnel (filas previas a RESUMEN Y AJUSTE)",
+  "methodology": {
+    "perforacion": "Taladro de Bóveda de Túnel",
+    "fijacion": "Montaje de Espárragos",
+    "soporte": "Montaje de Tubo + Estribo + Suspensión",
+    "mensula": "Montaje de Tubo + Estribo + Suspensión",
+    "aislador": "proxy de Montaje de Tubo + Estribo + Suspensión",
+    "perfil": "Montaje de Perfil CR",
+    "hilo": "Tendido de Hilo de Contacto",
+    "calculation": "Avance planificado lineal entre inicio y fin, ponderado con los mismos pesos del KPI real",
+    "coverage_rule": "Solo soportes en túneles con cronograma; estaciones y Tramo 2 se reportan fuera de cobertura"
+  },
+  "excluded_scope": [
+    "Marcación en Túnel",
+    "Montaje de Aislador de Sección",
+    "Montaje de Conexiones de Alimentación",
+    "Montaje de Conexiones Eléctricas y Puesta a Tierra 1",
+    "Montaje de Conexiones Eléctricas y Puesta a Tierra 2",
+    "Montaje de Conexiones Eléctricas y Puesta a Tierra 3"
+  ],
+  "source_issues": [
+    {
+      "sheet": "Tramo 4",
+      "row": 20,
+      "activity": "Montaje de Conexiones de Alimentación",
+      "start": "2027-12-30",
+      "end": "2027-01-07",
+      "issue": "inicio posterior al fin en fuente"
+    }
+  ],
+  "stages": {
+    "Tramo 3": {
+      "tunnels": {
+        "Tunel 6": {
+          "perforacion": {
+            "start": "2026-09-09",
+            "end": "2026-09-15",
+            "source_category": "Taladro de Bóveda de Túnel"
+          },
+          "fijacion": {
+            "start": "2026-09-17",
+            "end": "2026-09-22",
+            "source_category": "Montaje de Espárragos"
+          },
+          "soporte": {
+            "start": "2026-10-12",
+            "end": "2026-10-14",
+            "source_category": "Montaje de Tubo + Estribo + Suspensión"
+          },
+          "mensula": {
+            "start": "2026-10-12",
+            "end": "2026-10-14",
+            "source_category": "Montaje de Tubo + Estribo + Suspensión"
+          },
+          "aislador": {
+            "start": "2026-10-12",
+            "end": "2026-10-14",
+            "source_category": "Montaje de Tubo + Estribo + Suspensión",
+            "mapping_note": "proxy provisional: aislador estándar no desagregado en el cronograma"
+          },
+          "perfil": {
+            "start": "2026-11-02",
+            "end": "2026-11-04",
+            "source_category": "Montaje de Perfil CR"
+          },
+          "hilo": {
+            "start": "2026-11-20",
+            "end": "2026-11-23",
+            "source_category": "Tendido de Hilo de Contacto"
+          }
+        },
+        "Tunel 7": {
+          "perforacion": {
+            "start": "2026-09-16",
+            "end": "2026-09-22",
+            "source_category": "Taladro de Bóveda de Túnel"
+          },
+          "fijacion": {
+            "start": "2026-09-23",
+            "end": "2026-09-28",
+            "source_category": "Montaje de Espárragos"
+          },
+          "soporte": {
+            "start": "2026-10-15",
+            "end": "2026-10-19",
+            "source_category": "Montaje de Tubo + Estribo + Suspensión"
+          },
+          "mensula": {
+            "start": "2026-10-15",
+            "end": "2026-10-19",
+            "source_category": "Montaje de Tubo + Estribo + Suspensión"
+          },
+          "aislador": {
+            "start": "2026-10-15",
+            "end": "2026-10-19",
+            "source_category": "Montaje de Tubo + Estribo + Suspensión",
+            "mapping_note": "proxy provisional: aislador estándar no desagregado en el cronograma"
+          },
+          "perfil": {
+            "start": "2026-11-05",
+            "end": "2026-11-09",
+            "source_category": "Montaje de Perfil CR"
+          },
+          "hilo": {
+            "start": "2026-11-24",
+            "end": "2026-11-25",
+            "source_category": "Tendido de Hilo de Contacto"
+          }
+        },
+        "Tunel 8": {
+          "perforacion": {
+            "start": "2026-09-23",
+            "end": "2026-09-29",
+            "source_category": "Taladro de Bóveda de Túnel"
+          },
+          "fijacion": {
+            "start": "2026-09-29",
+            "end": "2026-10-02",
+            "source_category": "Montaje de Espárragos"
+          },
+          "soporte": {
+            "start": "2026-10-20",
+            "end": "2026-10-22",
+            "source_category": "Montaje de Tubo + Estribo + Suspensión"
+          },
+          "mensula": {
+            "start": "2026-10-20",
+            "end": "2026-10-22",
+            "source_category": "Montaje de Tubo + Estribo + Suspensión"
+          },
+          "aislador": {
+            "start": "2026-10-20",
+            "end": "2026-10-22",
+            "source_category": "Montaje de Tubo + Estribo + Suspensión",
+            "mapping_note": "proxy provisional: aislador estándar no desagregado en el cronograma"
+          },
+          "perfil": {
+            "start": "2026-11-10",
+            "end": "2026-11-12",
+            "source_category": "Montaje de Perfil CR"
+          },
+          "hilo": {
+            "start": "2026-11-26",
+            "end": "2026-11-27",
+            "source_category": "Tendido de Hilo de Contacto"
+          }
+        },
+        "Tunel 9": {
+          "perforacion": {
+            "start": "2026-09-29",
+            "end": "2026-10-05",
+            "source_category": "Taladro de Bóveda de Túnel"
+          },
+          "fijacion": {
+            "start": "2026-10-02",
+            "end": "2026-10-07",
+            "source_category": "Montaje de Espárragos"
+          },
+          "soporte": {
+            "start": "2026-10-23",
+            "end": "2026-10-27",
+            "source_category": "Montaje de Tubo + Estribo + Suspensión"
+          },
+          "mensula": {
+            "start": "2026-10-23",
+            "end": "2026-10-27",
+            "source_category": "Montaje de Tubo + Estribo + Suspensión"
+          },
+          "aislador": {
+            "start": "2026-10-23",
+            "end": "2026-10-27",
+            "source_category": "Montaje de Tubo + Estribo + Suspensión",
+            "mapping_note": "proxy provisional: aislador estándar no desagregado en el cronograma"
+          },
+          "perfil": {
+            "start": "2026-11-13",
+            "end": "2026-11-17",
+            "source_category": "Montaje de Perfil CR"
+          },
+          "hilo": {
+            "start": "2026-11-30",
+            "end": "2026-12-01",
+            "source_category": "Tendido de Hilo de Contacto"
+          }
+        },
+        "Tunel 10": {
+          "perforacion": {
+            "start": "2026-10-05",
+            "end": "2026-10-09",
+            "source_category": "Taladro de Bóveda de Túnel"
+          },
+          "fijacion": {
+            "start": "2026-10-07",
+            "end": "2026-10-12",
+            "source_category": "Montaje de Espárragos"
+          },
+          "soporte": {
+            "start": "2026-10-28",
+            "end": "2026-10-30",
+            "source_category": "Montaje de Tubo + Estribo + Suspensión"
+          },
+          "mensula": {
+            "start": "2026-10-28",
+            "end": "2026-10-30",
+            "source_category": "Montaje de Tubo + Estribo + Suspensión"
+          },
+          "aislador": {
+            "start": "2026-10-28",
+            "end": "2026-10-30",
+            "source_category": "Montaje de Tubo + Estribo + Suspensión",
+            "mapping_note": "proxy provisional: aislador estándar no desagregado en el cronograma"
+          },
+          "perfil": {
+            "start": "2026-11-17",
+            "end": "2026-11-19",
+            "source_category": "Montaje de Perfil CR"
+          },
+          "hilo": {
+            "start": "2026-12-02",
+            "end": "2026-12-03",
+            "source_category": "Tendido de Hilo de Contacto"
+          }
+        }
+      }
+    },
+    "Tramo 4": {
+      "tunnels": {
+        "Tunel 11": {
+          "perforacion": {
+            "start": "2026-12-16",
+            "end": "2026-12-17",
+            "source_category": "Taladro de Bóveda de Túnel"
+          },
+          "fijacion": {
+            "start": "2026-12-24",
+            "end": "2026-12-25",
+            "source_category": "Montaje de Espárragos"
+          },
+          "soporte": {
+            "start": "2026-12-31",
+            "end": "2026-12-31",
+            "source_category": "Montaje de Tubo + Estribo + Suspensión"
+          },
+          "mensula": {
+            "start": "2026-12-31",
+            "end": "2026-12-31",
+            "source_category": "Montaje de Tubo + Estribo + Suspensión"
+          },
+          "aislador": {
+            "start": "2026-12-31",
+            "end": "2026-12-31",
+            "source_category": "Montaje de Tubo + Estribo + Suspensión",
+            "mapping_note": "proxy provisional: aislador estándar no desagregado en el cronograma"
+          },
+          "perfil": {
+            "start": "2027-01-05",
+            "end": "2027-01-07",
+            "source_category": "Montaje de Perfil CR"
+          },
+          "hilo": {
+            "start": "2027-01-13",
+            "end": "2027-01-19",
+            "source_category": "Tendido de Hilo de Contacto"
+          }
+        },
+        "Tunel 12": {
+          "perforacion": {
+            "start": "2026-12-17",
+            "end": "2026-12-18",
+            "source_category": "Taladro de Bóveda de Túnel"
+          },
+          "fijacion": {
+            "start": "2026-12-25",
+            "end": "2026-12-28",
+            "source_category": "Montaje de Espárragos"
+          },
+          "soporte": {
+            "start": "2027-01-01",
+            "end": "2027-01-01",
+            "source_category": "Montaje de Tubo + Estribo + Suspensión"
+          },
+          "mensula": {
+            "start": "2027-01-01",
+            "end": "2027-01-01",
+            "source_category": "Montaje de Tubo + Estribo + Suspensión"
+          },
+          "aislador": {
+            "start": "2027-01-01",
+            "end": "2027-01-01",
+            "source_category": "Montaje de Tubo + Estribo + Suspensión",
+            "mapping_note": "proxy provisional: aislador estándar no desagregado en el cronograma"
+          },
+          "perfil": {
+            "start": "2027-01-06",
+            "end": "2027-01-08",
+            "source_category": "Montaje de Perfil CR"
+          },
+          "hilo": {
+            "start": "2027-01-14",
+            "end": "2027-01-20",
+            "source_category": "Tendido de Hilo de Contacto"
+          }
+        },
+        "Tunel 13": {
+          "perforacion": {
+            "start": "2026-12-18",
+            "end": "2026-12-21",
+            "source_category": "Taladro de Bóveda de Túnel"
+          },
+          "fijacion": {
+            "start": "2026-12-25",
+            "end": "2026-12-28",
+            "source_category": "Montaje de Espárragos"
+          },
+          "soporte": {
+            "start": "2027-01-01",
+            "end": "2027-01-01",
+            "source_category": "Montaje de Tubo + Estribo + Suspensión"
+          },
+          "mensula": {
+            "start": "2027-01-01",
+            "end": "2027-01-01",
+            "source_category": "Montaje de Tubo + Estribo + Suspensión"
+          },
+          "aislador": {
+            "start": "2027-01-01",
+            "end": "2027-01-01",
+            "source_category": "Montaje de Tubo + Estribo + Suspensión",
+            "mapping_note": "proxy provisional: aislador estándar no desagregado en el cronograma"
+          },
+          "perfil": {
+            "start": "2027-01-07",
+            "end": "2027-01-11",
+            "source_category": "Montaje de Perfil CR"
+          },
+          "hilo": {
+            "start": "2027-01-15",
+            "end": "2027-01-21",
+            "source_category": "Tendido de Hilo de Contacto"
+          }
+        },
+        "Tunel 14": {
+          "perforacion": {
+            "start": "2026-12-21",
+            "end": "2026-12-22",
+            "source_category": "Taladro de Bóveda de Túnel"
+          },
+          "fijacion": {
+            "start": "2026-12-28",
+            "end": "2026-12-29",
+            "source_category": "Montaje de Espárragos"
+          },
+          "soporte": {
+            "start": "2027-01-04",
+            "end": "2027-01-04",
+            "source_category": "Montaje de Tubo + Estribo + Suspensión"
+          },
+          "mensula": {
+            "start": "2027-01-04",
+            "end": "2027-01-04",
+            "source_category": "Montaje de Tubo + Estribo + Suspensión"
+          },
+          "aislador": {
+            "start": "2027-01-04",
+            "end": "2027-01-04",
+            "source_category": "Montaje de Tubo + Estribo + Suspensión",
+            "mapping_note": "proxy provisional: aislador estándar no desagregado en el cronograma"
+          },
+          "perfil": {
+            "start": "2027-01-08",
+            "end": "2027-01-12",
+            "source_category": "Montaje de Perfil CR"
+          },
+          "hilo": {
+            "start": "2027-01-18",
+            "end": "2027-01-22",
+            "source_category": "Tendido de Hilo de Contacto"
+          }
+        }
+      }
+    }
+  }
+}

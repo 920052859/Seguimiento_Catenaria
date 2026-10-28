@@ -454,6 +454,15 @@ tbody td{padding:6px 10px;vertical-align:middle;white-space:nowrap}
     </select>
   </div>
   <div class="filter-group">
+    <label>Etapa:</label>
+    <select id="f-etapa" onchange="applyFilters()">
+      <option value="">Todas</option>
+      <option value="Tramo 2">Tramo 2</option>
+      <option value="Tramo 3">Tramo 3</option>
+      <option value="Tramo 4">Tramo 4</option>
+    </select>
+  </div>
+  <div class="filter-group">
     <label>Tramo:</label>
     <select id="f-tramo" onchange="applyFilters()">
       <option value="">Todos</option>
@@ -521,6 +530,14 @@ tbody td{padding:6px 10px;vertical-align:middle;white-space:nowrap}
   <div id="tab-kpi" style="display:none">
     <div class="section-title">Avance Global por Actividad</div>
     <div class="kpi-row" id="kpi-cards"></div>
+
+    <div class="section-title" style="margin-top:18px">Seguimiento Plan vs Real por Etapa y Túnel</div>
+    <div class="gantt-wrap">
+      <div style="padding:10px 14px;font-size:.72rem;color:var(--text3)">
+        Plan calculado con las 7 actividades comparables del cronograma recibido. Estaciones y Tramo 2 se reportan fuera de cobertura hasta contar con línea base.
+      </div>
+      <div id="stage-kpi-rows"></div>
+    </div>
     
     <div class="section-title" style="margin-top:18px">Avance por Tramo (Estación - Estación)</div>
     <div class="gantt-wrap">
@@ -562,8 +579,8 @@ tbody td{padding:6px 10px;vertical-align:middle;white-space:nowrap}
         <canvas id="spi-canvas" height="240" style="width:100%;background:#0a0f1e;border-radius:8px;display:block;margin-top:8px"></canvas>
         <div id="spi-tooltip" style="display:none;position:absolute;background:rgba(14,22,40,.95);border:1px solid var(--accent);border-radius:7px;padding:8px 12px;font-size:.78rem;color:var(--text);pointer-events:none;z-index:300;white-space:nowrap;box-shadow:0 4px 16px rgba(0,0,0,.5)"></div>
         <div style="font-size:.72rem;color:var(--text3);margin-top:6px;text-align:center">
-          Curva S contractual vs avance real acumulado. Los puntos reales se obtienen de los snapshots semanales.
-          Para agregar el avance de hoy al gráfico:
+          Curva S del cronograma recibido vs avance real actual, usando la misma población filtrada y comparable.
+          La cobertura se muestra por etapa/túnel; el histórico filtrado se habilitará cuando los cortes guarden esas dimensiones.
           <button class="btn btn-primary" style="margin-left:8px;padding:4px 10px;font-size:.7rem" onclick="saveSnapshot()">💾 Guardar corte SPI ahora</button>
         </div>
       </div>
@@ -803,6 +820,7 @@ tbody td{padding:6px 10px;vertical-align:middle;white-space:nowrap}
 </div>
 
 <script src="./location_utils.js"></script>
+<script src="./kpi_schedule_utils.js"></script>
 <script>
 // ============================================================
 //  CONFIG - REEMPLAZAR CON TU URL DE APPS SCRIPT
@@ -864,6 +882,7 @@ let isViewerMode = (new URLSearchParams(window.location.search).get('mode') !== 
 const MAX_ZOOM = 120; // zoom maximo para ver soporte a soporte
 let historyData = null;
 let alignmentProfile = [];
+let scheduleData = null;
 
 // -------- PASSWORD / SESSION --------
 const EDITOR_PASSWORD = 'admin123';
@@ -915,7 +934,7 @@ function scheduleDailyAutoSave() {
 //  INIT
 // ============================================================
 document.addEventListener('DOMContentLoaded', async () => {
-  await loadAlignmentProfile();
+  await Promise.all([loadAlignmentProfile(), loadScheduleData()]);
   await loadData();
   populateFilters();
   applyFilters();
@@ -944,6 +963,17 @@ async function loadAlignmentProfile() {
     alignmentProfile = data.points || [];
   } catch (error) {
     alignmentProfile = [];
+  }
+}
+
+async function loadScheduleData() {
+  try {
+    const response = await fetch('./schedule_curve.json');
+    if (!response.ok) throw new Error('Cronograma no disponible');
+    scheduleData = await response.json();
+  } catch (error) {
+    scheduleData = null;
+    console.warn('No se pudo cargar la curva S:', error);
   }
 }
 
@@ -1030,27 +1060,23 @@ function populateFilters() {
 }
 
 function applyFilters() {
-  const via = document.getElementById('f-via').value;
-  const tramo = document.getElementById('f-tramo').value;
-  const estado = document.getElementById('f-estado').value;
-  const search = document.getElementById('f-search').value.toLowerCase();
-  
-  filtered = allSoportes.filter(s => {
-    if (via && String(s.via) !== via) return false;
-    if (tramo && s.tramo !== tramo) return false;
-    if (estado === 'sin_iniciar' && s.pct > 0) return false;
-    if (estado === 'en_progreso' && (s.pct === 0 || s.pct >= 100)) return false;
-    if (estado === 'completo' && s.pct < 100) return false;
-    if (estado === 'adicional' && s.situacion !== 'Adicional') return false;
-    if (estado === 'interferencia' && s.situacion !== 'Interferencia') return false;
-    if (search && !s.id.toLowerCase().includes(search) && !s.tramo.toLowerCase().includes(search)) return false;
-    return true;
+  filtered = CatenariaSchedule.filterSupports(allSoportes, {
+    via: document.getElementById('f-via').value,
+    etapa: document.getElementById('f-etapa').value,
+    tramo: document.getElementById('f-tramo').value,
+    estado: document.getElementById('f-estado').value,
+    search: document.getElementById('f-search').value,
   });
-  
+
   currentPage = 1;
   renderTable();
   renderMap();
+  renderKPIs();
+  renderGantt();
+  renderCrono();
+  renderStageTracking();
   if (currentTab === 'map') renderMapKpiStrip();
+  if (currentTab === 'kpi') setTimeout(renderSPI, 20);
 }
 
 // ============================================================
@@ -1077,16 +1103,16 @@ function switchTab(name) {
 function renderKPIs() {
   const container = document.getElementById('kpi-cards');
   container.innerHTML = '';
-  
-  // Global card
-  const total = allSoportes.length;
-  const globalPct = total > 0 ? allSoportes.reduce((s,x)=>s+x.pct,0)/total : 0;
-  container.innerHTML += kpiCard('Avance Global', globalPct.toFixed(1)+'%', 
-    total+' soportes', '#00c6ff', 100, globalPct);
-  
-  // Per actividad
+  const scope = filtered;
+
+  // Global card for the active filters
+  const total = scope.length;
+  const globalPct = total > 0 ? scope.reduce((s,x)=>s+Number(x.pct||0),0)/total : 0;
+  container.innerHTML += kpiCard('Avance filtrado', globalPct.toFixed(1)+'%',
+    total+' soportes visibles', '#00c6ff', 100, globalPct);
+
   ACTS.forEach(a => {
-    const done = allSoportes.filter(s=>s[a.key]==1).length;
+    const done = scope.filter(s=>Number(s[a.key])===1).length;
     const pct = total > 0 ? done/total*100 : 0;
     container.innerHTML += kpiCard(a.label, pct.toFixed(1)+'%',
       done+' / '+total+' · peso '+Math.round(a.weight*100)+'%',
@@ -1111,9 +1137,10 @@ function kpiCard(label, value, sub, color, max, current, weight='') {
 function renderGantt() {
   const container = document.getElementById('gantt-rows');
   container.innerHTML = '';
-  
+  const scope = filtered;
+
   TRAMO_ORDER.forEach(tramo => {
-    const sops = allSoportes.filter(s=>s.tramo===tramo);
+    const sops = scope.filter(s=>s.tramo===tramo);
     if (!sops.length) return;
     const avg = sops.reduce((s,x)=>s+x.pct,0)/sops.length;
     const color = avg<20?'var(--red)':avg<50?'var(--yellow)':avg<80?'var(--accent)':'var(--green)';
@@ -1130,31 +1157,61 @@ function renderGantt() {
   });
 }
 
+function scheduleComparison(scope, at=new Date()) {
+  const mapped = (scope || []).filter(s => CatenariaSchedule.scheduleForSupport(s, scheduleData));
+  const stats = CatenariaSchedule.plannedStatsForSupports(scope || [], at, scheduleData);
+  const real = mapped.length ? mapped.reduce((sum,s)=>sum+Number(s.pct||0),0)/mapped.length : null;
+  return {mapped, plan:mapped.length ? stats.planned : null, real, coverage:stats.coverage};
+}
+
+function comparisonRow(label, scope, indent=false) {
+  const cmp = scheduleComparison(scope);
+  const delta = cmp.plan===null || cmp.real===null ? null : cmp.real-cmp.plan;
+  const color = delta===null ? 'var(--text3)' : delta>=0 ? 'var(--green)' : 'var(--red)';
+  return `<div style="display:grid;grid-template-columns:minmax(130px,1.4fr) 78px 78px 78px 100px;gap:8px;padding:8px 14px;border-top:1px solid var(--border);font-size:.78rem;align-items:center">
+    <span style="font-weight:${indent?500:700};padding-left:${indent?16:0}px">${label}</span>
+    <span style="color:#f59e0b">${cmp.plan===null?'N/D':cmp.plan.toFixed(1)+'%'}</span>
+    <span style="color:var(--accent)">${cmp.real===null?'N/D':cmp.real.toFixed(1)+'%'}</span>
+    <span style="color:${color};font-weight:700">${delta===null?'N/D':(delta>=0?'+':'')+delta.toFixed(1)+'%'}</span>
+    <span style="color:var(--text3)">${cmp.mapped.length}/${scope.length} sop.</span>
+  </div>`;
+}
+
+function renderStageTracking() {
+  const container = document.getElementById('stage-kpi-rows');
+  if (!container) return;
+  const scope = filtered;
+  let html = `<div style="display:grid;grid-template-columns:minmax(130px,1.4fr) 78px 78px 78px 100px;gap:8px;padding:7px 14px;background:var(--bg3);font-size:.68rem;text-transform:uppercase;color:var(--text3);font-weight:700"><span>Alcance</span><span>Plan</span><span>Real</span><span>Delta</span><span>Cobertura</span></div>`;
+  const selectedStage = document.getElementById('f-etapa').value;
+  const stages = selectedStage ? [selectedStage] : ['Tramo 2','Tramo 3','Tramo 4'];
+  stages.forEach(stage => {
+    const stageScope = scope.filter(s=>CatenariaSchedule.stageOf(s)===stage);
+    if (!stageScope.length) return;
+    html += comparisonRow(stage, stageScope, false);
+    const tunnels = [...new Set(stageScope.map(s=>CatenariaSchedule.tunnelKey(s.tunel||s.ubicacion)).filter(t=>/^Tunel \d+$/.test(t)))]
+      .sort((a,b)=>Number(a.match(/\d+/)[0])-Number(b.match(/\d+/)[0]));
+    tunnels.forEach(tunnel => html += comparisonRow(tunnel.replace('Tunel','Túnel'), stageScope.filter(s=>CatenariaSchedule.tunnelKey(s.tunel||s.ubicacion)===tunnel), true));
+  });
+  container.innerHTML = html || '<div style="padding:14px;color:var(--text3)">Sin soportes para los filtros seleccionados.</div>';
+}
+
 function renderCrono() {
   const container = document.getElementById('crono-rows');
   container.innerHTML = '';
-  const today = new Date();
-  
-  CRONOGRAMA.forEach(c => {
-    const sops = allSoportes.filter(s=>s.tramo===c.tramo);
-    const realPct = sops.length > 0 ? sops.reduce((s,x)=>s+x.pct,0)/sops.length : 0;
-    
-    const ini = new Date(c.inicio);
-    const fin = new Date(c.fin);
-    const totalDays = (fin-ini)/(1000*86400);
-    const elapsedDays = Math.max(0, Math.min(totalDays, (today-ini)/(1000*86400)));
-    const planPct = totalDays > 0 ? Math.min(100, elapsedDays/totalDays*100) : 0;
-    const delta = realPct - planPct;
-    const deltaColor = delta >= 0 ? 'var(--green)' : 'var(--red)';
-    const deltaLabel = (delta>=0?'+':'')+delta.toFixed(1)+'%';
-    
+  const scope = filtered;
+  TRAMO_ORDER.forEach(tramo => {
+    const sops = scope.filter(s=>s.tramo===tramo);
+    if (!sops.length) return;
+    const cmp = scheduleComparison(sops);
+    const delta = cmp.plan===null || cmp.real===null ? null : cmp.real-cmp.plan;
+    const deltaColor = delta===null?'var(--text3)':delta>=0?'var(--green)':'var(--red)';
     container.innerHTML += `
       <div style="display:grid;grid-template-columns:140px 1fr 80px 80px 80px;gap:8px;padding:7px 0;border-top:1px solid var(--border);font-size:.8rem;align-items:center">
-        <span style="font-weight:600">${c.tramo}</span>
-        <span style="color:var(--text3);font-size:.72rem">${c.inicio} → ${c.fin}</span>
-        <span style="color:var(--text2)">${planPct.toFixed(1)}%</span>
-        <span style="color:var(--accent)">${realPct.toFixed(1)}%</span>
-        <span style="color:${deltaColor};font-weight:700">${deltaLabel}</span>
+        <span style="font-weight:600">${tramo}</span>
+        <span style="color:var(--text3);font-size:.72rem">${cmp.mapped.length}/${sops.length} soportes con línea base</span>
+        <span style="color:#f59e0b">${cmp.plan===null?'N/D':cmp.plan.toFixed(1)+'%'}</span>
+        <span style="color:var(--accent)">${cmp.real===null?'N/D':cmp.real.toFixed(1)+'%'}</span>
+        <span style="color:${deltaColor};font-weight:700">${delta===null?'N/D':(delta>=0?'+':'')+delta.toFixed(1)+'%'}</span>
       </div>`;
   });
 }
@@ -1287,6 +1344,32 @@ function drawTunnelLabels(src, kmToX, width, zoneTop, zoneBottom) {
   ctx.restore();
 }
 
+function drawStationBounds(src, kmToX, zoneTop, zoneBottom) {
+  const bounds = CatenariaSchedule.buildStationBounds(src);
+  if (!bounds.length) return;
+  ctx.save();
+  bounds.forEach(station => {
+    const x1 = kmToX(station.kmMin) - 7;
+    const x2 = kmToX(station.kmMax) + 7;
+    const width = Math.max(14, x2-x1);
+    if (x2 < 0 || x1 > canvas.width) return;
+    ctx.fillStyle = 'rgba(168,85,247,.055)';
+    ctx.strokeStyle = 'rgba(192,132,252,.9)';
+    ctx.lineWidth = 1.5;
+    ctx.setLineDash([6,3]);
+    ctx.fillRect(x1, zoneTop+2, width, zoneBottom-zoneTop-4);
+    ctx.strokeRect(x1, zoneTop+2, width, zoneBottom-zoneTop-4);
+    ctx.setLineDash([]);
+    ctx.fillStyle = 'rgba(88,28,135,.96)';
+    ctx.fillRect(x1+4, zoneTop+5, 31, 15);
+    ctx.fillStyle = '#f3e8ff';
+    ctx.font = 'bold 9px Segoe UI';
+    ctx.textAlign = 'center';
+    ctx.fillText(station.label, x1+19.5, zoneTop+15.5);
+  });
+  ctx.restore();
+}
+
 function renderMap() {
   if (currentTab !== 'map') return;
   const W = canvas.offsetWidth;
@@ -1294,7 +1377,7 @@ function renderMap() {
   canvas.width = W;
   canvas.height = H;
 
-  const src = filtered.length > 0 ? filtered : allSoportes;
+  const src = filtered;
   if (!src.length) return;
 
   const sorted = [...src].sort((a,b)=>a.via!==b.via?a.via-b.via:(a.km||0)-(b.km||0));
@@ -1424,6 +1507,9 @@ function renderMap() {
     ctx.fillText(st.label,x,VIA1_ZONE_TOP+10);
     ctx.fillText(st.label,x,VIA2_ZONE_BOT-2);
   });
+
+  // --- Station envelopes from the source `ubicacion` field (both tracks) ---
+  drawStationBounds(src, kmToX, VIA1_ZONE_TOP, VIA2_ZONE_BOT);
 
   // --- Tunnel names derived from the source PKs ---
   drawTunnelLabels(src, kmToX, W, VIA1_ZONE_TOP, VIA2_ZONE_BOT);
@@ -1758,7 +1844,7 @@ function drawVehiclePositions() {
   const ctx = c.getContext('2d');
   const W = c.width, H = c.height;
   if (!W || !H) return;
-  const src = (filtered && filtered.length > 0) ? filtered : allSoportes;
+  const src = filtered;
   const validKm = src.map(s=>Number(s.km)||0).filter(k=>k>0);
   if (!validKm.length) return;
   const kmMin=Math.min(...validKm), kmMax=Math.max(...validKm), kmRange=kmMax-kmMin||1;
@@ -1966,7 +2052,7 @@ function renderMapKpiStrip() {
   const strip = document.getElementById('map-kpi-strip');
   if (!strip) return;
   // Use the active filtered set if it exists, otherwise all
-  const src = (filtered && filtered.length > 0) ? filtered : allSoportes;
+  const src = filtered;
   const total = src.length || 1;
   const globalPct = src.reduce((s,x)=>s+Number(x.pct||0),0)/total;
 
@@ -2003,33 +2089,8 @@ function renderMapKpiStrip() {
 
 // ---- SPI Calculation & Chart ----
 function computeContractualCurve() {
-  // Build from CRONOGRAMA: linear ramp per tramo weighted by soporte count
-  const tramoMap = {};
-  allSoportes.forEach(s=>{ if (s.tramo) tramoMap[s.tramo]=(tramoMap[s.tramo]||0)+1; });
-  const total = allSoportes.length || 1;
-  const events = [];
-  CRONOGRAMA.forEach(cr => {
-    const n = tramoMap[cr.tramo] || 0;
-    if (n===0) return;
-    events.push({start:new Date(cr.inicio), end:new Date(cr.fin), weight:n/total*100});
-  });
-  if (!events.length) return [];
-  const globalStart = events.reduce((m,e)=>e.start<m?e.start:m, events[0].start);
-  const globalEnd   = events.reduce((m,e)=>e.end>m?e.end:m,   events[0].end);
-  const days = Math.max(1,(globalEnd-globalStart)/86400000);
-  const pts = [];
-  for (let d=0; d<=Math.ceil(days); d+=7) {
-    const date = new Date(globalStart.getTime()+d*86400000);
-    let planned = 0;
-    events.forEach(e => {
-      if (date<=e.start) return;
-      if (date>=e.end) { planned+=e.weight; return; }
-      planned += e.weight*((date-e.start)/(e.end-e.start));
-    });
-    pts.push({date, planned: Math.min(100,planned)});
-  }
-  pts.push({date:globalEnd, planned:100});
-  return pts;
+  if (!scheduleData || !window.CatenariaSchedule) return [];
+  return CatenariaSchedule.buildPlannedCurve(filtered, scheduleData, 7);
 }
 
 function renderSPI() {
@@ -2080,8 +2141,9 @@ function renderSPI() {
     ctx.fillStyle='rgba(239,68,68,.8)'; ctx.textAlign='center'; ctx.font='8px Segoe UI';
     ctx.fillText('Hoy',tx,pad.t-4);
   }
-  // Real data from snapshots
-  const real = [...(historyData||[])].sort((a,b)=>String(a.semana).localeCompare(String(b.semana)));
+  // Los snapshots históricos actuales son globales y no tienen Etapa/túnel.
+  // No se mezclan con la línea base filtrada porque no serían comparables.
+  const real = [];
   if (real.length) {
     ctx.strokeStyle='#00c6ff'; ctx.lineWidth=2.5;
     ctx.beginPath();
@@ -2117,40 +2179,38 @@ function renderSPI() {
     if(x<pad.l||x>W-pad.r) continue;
     ctx.fillText(d.toLocaleString('es-PE',{month:'short',year:'2-digit'}),x,H-pad.b+14);
   }
-  // Compute SPI
-  if (real.length) {
-    const lastPct=Number(real[real.length-1].global_pct||0);
-    const lastDate=new Date(real[real.length-1].timestamp||real[real.length-1].semana);
-    const planned=contractual.find(pt=>pt.date>=lastDate)||contractual[contractual.length-1];
-    const spi=planned.planned>0 ? lastPct/planned.planned : null;
-    const el=document.getElementById('spi-value-global');
-    const desc=document.getElementById('spi-desc-global');
-    const fill=document.getElementById('spi-fill-global');
-    if (el && spi!==null) {
-      el.textContent=spi.toFixed(2);
-      el.className='spi-indicator '+(spi>=1?'spi-green':spi>=0.85?'spi-yellow':'spi-red');
-      if (desc) desc.textContent=spi>=1?'Adelantado al plan':spi>=0.85?'Dentro del margen aceptable':'Rezago respecto al plan contractual';
-      if (fill) { fill.style.width=Math.min(100,spi*100)+'%'; fill.style.background=spi>=1?'#22c55e':spi>=0.85?'#f59e0b':'#ef4444'; }
-    }
+  // Compute SPI from the same comparable, filtered support population.
+  const comparison = scheduleComparison(filtered);
+  const spi = comparison.plan && comparison.real!==null ? comparison.real/comparison.plan : null;
+  const el=document.getElementById('spi-value-global');
+  const desc=document.getElementById('spi-desc-global');
+  const fill=document.getElementById('spi-fill-global');
+  if (el) {
+    el.textContent=spi===null?'N/D':spi.toFixed(2);
+    el.className='spi-indicator '+(spi===null?'':spi>=1?'spi-green':spi>=0.85?'spi-yellow':'spi-red');
+    if (desc) desc.textContent=spi===null?'Sin línea base comparable para el filtro':spi>=1?'Adelantado al plan':spi>=0.85?'Dentro del margen aceptable':'Rezago respecto al plan';
+    if (fill) { fill.style.width=spi===null?'0%':Math.min(100,spi*100)+'%'; fill.style.background=spi>=1?'#22c55e':spi>=0.85?'#f59e0b':'#ef4444'; }
   }
 }
 
 // Draw current real-progress annotation on SPI canvas (total % known from soportes)
 function spiDrawCurrentProgress(ctx, W, pad, cw, ch, toX, toY) {
-  const total = allSoportes.length || 1;
-  const realPct = allSoportes.reduce((s,x)=>s+Number(x.pct||0),0)/total;
-  if (!realPct) return;
-  const now = new Date();
-  const x = toX(now.getTime());
+  const comparison = scheduleComparison(filtered);
+  if (comparison.real===null) return;
+  const realPct = comparison.real;
+  const contractual = computeContractualCurve();
+  if (!contractual.length) return;
+  const minTime = contractual[0].date.getTime();
+  const maxTime = contractual[contractual.length-1].date.getTime();
+  const markerTime = Math.max(minTime, Math.min(maxTime, Date.now()));
+  const x = toX(markerTime);
   const y = toY(realPct);
   if (x < pad.l || x > W - pad.r) return;
-  // Circle marker
   ctx.beginPath(); ctx.arc(x, y, 5, 0, Math.PI*2);
   ctx.fillStyle='#00c6ff'; ctx.globalAlpha=.9; ctx.fill(); ctx.globalAlpha=1;
-  // Label
-  const labelX = x + (x > W - 100 ? -70 : 8);
+  const labelX = x > W - 100 ? x-84 : x+8;
   ctx.fillStyle='rgba(14,22,40,.88)';
-  ctx.fillRect(labelX-2, y-18, 64, 20);
+  ctx.fillRect(labelX-2, y-18, 82, 20);
   ctx.fillStyle='#00c6ff'; ctx.font='bold 9px Segoe UI'; ctx.textAlign='left';
   ctx.fillText(`Real: ${realPct.toFixed(1)}%`, labelX+2, y-4);
 }
@@ -2165,7 +2225,6 @@ function setupSPITooltip() {
   canvas._spiLeave && canvas.removeEventListener('mouseleave', canvas._spiLeave);
 
   const contractual = computeContractualCurve();
-  const real = [...(historyData||[])].sort((a,b)=>String(a.semana).localeCompare(String(b.semana)));
   if (!contractual.length) return;
 
   const tMin=contractual[0].date.getTime(), tMax=contractual[contractual.length-1].date.getTime();
@@ -2193,23 +2252,16 @@ function setupSPITooltip() {
     if (planned === null && contractual.length) {
       planned = t <= contractual[0].date.getTime() ? contractual[0].planned : contractual[contractual.length-1].planned;
     }
-    // Find closest real snapshot
-    let closestReal = null, minD = Infinity;
-    real.forEach(row => {
-      const d = Math.abs(new Date(row.timestamp||row.semana).getTime() - t);
-      if (d < minD) { minD=d; closestReal=row; }
-    });
-    // Current total progress
-    const total = allSoportes.length || 1;
-    const realPct = allSoportes.reduce((s,x)=>s+Number(x.pct||0),0)/total;
+    const comparison = scheduleComparison(filtered);
+    const total = comparison.mapped.length;
+    const realPct = comparison.real;
     let html = `<div style="color:var(--text3);margin-bottom:4px;font-size:.7rem">${dateStr}</div>`;
-    if (planned !== null) html += `<div>📅 Plan contractual: <b style="color:#f59e0b">${planned.toFixed(1)}%</b></div>`;
-    if (closestReal && minD < 15*86400000) html += `<div>📊 Snapshot ${closestReal.semana}: <b style="color:#00c6ff">${Number(closestReal.global_pct).toFixed(1)}%</b></div>`;
-    html += `<div>⚡ Avance actual total: <b style="color:#22c55e">${realPct.toFixed(1)}%</b> (${allSoportes.filter(s=>Number(s.pct)>=100).length}/${total} sop.)</div>`;
-    if (planned !== null && planned > 0) {
+    if (planned !== null) html += `<div>📅 Plan comparable: <b style="color:#f59e0b">${planned.toFixed(1)}%</b></div>`;
+    html += `<div>⚡ Real actual comparable: <b style="color:#22c55e">${realPct===null?'N/D':realPct.toFixed(1)+'%'}</b> (${total} sop. con línea base)</div>`;
+    if (Math.abs(t-Date.now()) < 4*86400000 && planned !== null && planned > 0 && realPct!==null) {
       const spi = realPct / planned;
       const col = spi>=1?'#22c55e':spi>=0.85?'#f59e0b':'#ef4444';
-      html += `<div>📈 SPI: <b style="color:${col}">${spi.toFixed(2)}</b></div>`;
+      html += `<div>📈 SPI actual: <b style="color:${col}">${spi.toFixed(2)}</b></div>`;
     }
     tip.innerHTML = html;
     const tipLeft = e.clientX - rect.left + 14;
@@ -2229,7 +2281,7 @@ function findVehicleAt(clientX, clientY, radius=28) {
   const cx = (clientX - rect.left) * (canvas.width / rect.width);
   const cy = (clientY - rect.top)  * (canvas.height / rect.height);
   const W = canvas.width, H = canvas.height;
-  const src = (filtered && filtered.length > 0) ? filtered : allSoportes;
+  const src = filtered;
   const validKm = src.map(s=>Number(s.km)||0).filter(k=>k>0);
   if (!validKm.length) return null;
   const kmMin=Math.min(...validKm), kmMax=Math.max(...validKm), kmRange=kmMax-kmMin||1;
@@ -2313,7 +2365,7 @@ function findMapSoporteAt(clientX, clientY, radius=16) {
   const rect = canvas.getBoundingClientRect();
   const cx = (clientX - rect.left) * (canvas.width / rect.width);
   const cy = (clientY - rect.top) * (canvas.height / rect.height);
-  const src = filtered.length > 0 ? filtered : allSoportes;
+  const src = filtered;
   const validKm = src.map(s=>Number(s.km)||0).filter(k=>k>0);
   if (!validKm.length) return null;
   const kmMin = Math.min(...validKm);
@@ -2547,7 +2599,9 @@ function refreshDashboard() {
   renderKPIs();
   renderGantt();
   renderCrono();
+  renderStageTracking();
   renderMap();
+  if (currentTab === 'kpi') renderSPI();
 }
 
 function requestUncheck(message, callback) {
