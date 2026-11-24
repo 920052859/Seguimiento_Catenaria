@@ -691,6 +691,14 @@ tbody td{padding:6px 10px;vertical-align:middle;white-space:nowrap}
   </div>
   <div id="plan-cards" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:14px;margin-bottom:20px"></div>
 
+  <div class="section-title">Ubicación en Tiempo Real de los Frentes de Trabajo</div>
+  <div class="map-wrap" style="margin-bottom:20px">
+    <div class="map-toolbar" style="gap:8px">
+      <span style="font-size:.8rem;color:var(--text2);font-weight:600">📍 Frentes activos según el plan cargado</span>
+    </div>
+    <canvas id="plan-location-canvas" height="190" style="width:100%;background:#0a0f1e;display:block;border-radius:0 0 10px 10px"></canvas>
+  </div>
+
   <div class="section-title">Histórico de Planes Guardados</div>
   <div class="table-wrap" style="padding:16px">
     <div style="display:flex;gap:10px;margin-bottom:10px">
@@ -3103,12 +3111,17 @@ function planUbicacionOptions(tipo, selected) {
   return list.map(u => `<option value="${u}" ${u===selected?'selected':''}>${u}</option>`).join('');
 }
 
+function planActividadOptions(selected) {
+  return ACTS.map(a => `<option value="${a.key}" ${a.key===selected?'selected':''}>${a.label}</option>`).join('');
+}
+
 function planFrenteRowHtml(cuadrilla, index, frente) {
   const safeId = cuadrilla.replace(/\s+/g,'_');
   const tipo = frente.tipo === 'estacion' ? 'estacion' : 'tunel';
   const personas = frente.personas != null ? frente.personas : '';
   const ubicacion = frente.ubicacion || '';
   const via = frente.via || '';
+  const actividad = frente.actividad || ACTS[0].key;
   return `
     <div class="plan-frente-row" data-idx="${index}" style="display:flex;gap:6px;align-items:center;margin-bottom:6px;flex-wrap:wrap">
       <input type="number" min="0" step="1" value="${personas}" placeholder="N° personas"
@@ -3129,6 +3142,10 @@ function planFrenteRowHtml(cuadrilla, index, frente) {
         <option value="Via 1" ${via==='Via 1'?'selected':''}>Vía 1</option>
         <option value="Via 2" ${via==='Via 2'?'selected':''}>Vía 2</option>
       </select>
+      <select style="padding:5px 7px;border-radius:5px;background:var(--bg2);border:1px solid var(--border);color:var(--text1);font-size:.78rem;min-width:130px"
+        onchange="updatePlanFrente('${safeId}',${index},'actividad',this.value)" ${isViewerMode ? 'disabled' : ''}>
+        ${planActividadOptions(actividad)}
+      </select>
       ${isViewerMode ? '' : `<button class="btn btn-secondary" style="padding:4px 8px;font-size:.72rem" onclick="removePlanFrente('${safeId}',${index})">✕</button>`}
     </div>`;
 }
@@ -3140,8 +3157,8 @@ function renderPlanCards(fecha, planes) {
   CUADRILLAS.forEach(c => {
     const data = planes[c] || {};
     planFrentesState[c] = Array.isArray(data.frentes) && data.frentes.length
-      ? data.frentes.map(f => ({personas: f.personas != null ? Number(f.personas) : 0, tipo: f.tipo === 'estacion' ? 'estacion' : 'tunel', ubicacion: f.ubicacion || '', via: f.via || ''}))
-      : [{personas:0, tipo:'tunel', ubicacion: PLAN_TUNELES[0], via:''}];
+      ? data.frentes.map(f => ({personas: f.personas != null ? Number(f.personas) : 0, tipo: f.tipo === 'estacion' ? 'estacion' : 'tunel', ubicacion: f.ubicacion || '', via: f.via || '', actividad: f.actividad || ACTS[0].key}))
+      : [{personas:0, tipo:'tunel', ubicacion: PLAN_TUNELES[0], via:'', actividad: ACTS[0].key}];
   });
   cards.innerHTML = CUADRILLAS.map(c => {
     const safeId = c.replace(/\s+/g,'_');
@@ -3155,11 +3172,108 @@ function renderPlanCards(fecha, planes) {
         <div style="font-size:.74rem;color:var(--text2);font-weight:600;margin:10px 0 4px">Frentes de trabajo (personas / túnel o estación):</div>
         <div id="plan-frentes-${safeId}">${planFrentesState[c].map((f,i) => planFrenteRowHtml(c, i, f)).join('')}</div>
         ${isViewerMode ? '' : `<button class="btn btn-secondary allow-viewer" style="font-size:.72rem;margin-top:4px" onclick="addPlanFrente('${safeId}')">➕ Agregar frente</button>`}
-        <div style="font-size:.7rem;color:var(--text3);margin:8px 0 10px">${metaText}</div>
+        <div id="plan-meta-${safeId}" style="font-size:.7rem;color:var(--text3);margin:8px 0 10px">${metaText}</div>
         <button class="btn btn-primary allow-viewer" onclick="savePlanCuadrilla('${c}')" ${isViewerMode ? 'disabled style="opacity:.5;cursor:not-allowed"' : ''}>💾 Guardar plan</button>
       </div>`;
   }).join('');
+  renderPlanLocationMap();
 }
+
+// Orden físico real de progresiva (Callao → Ate) según km de soportes.json
+const PLAN_UBICACION_ORDER = [
+  'Tunel 6','E12','Tunel 7','E13','Tunel 8','E14','Tunel 9','E15',
+  'Tunel 10','E16','Tunel 11','E17','Tunel 12','E18','Tunel 13','E19','Tunel 14'
+];
+
+function renderPlanLocationMap() {
+  const canvas = document.getElementById('plan-location-canvas');
+  if (!canvas) return;
+  const W = canvas.offsetWidth || 800;
+  const H = 190;
+  canvas.width = W; canvas.height = H;
+  const ctx2 = canvas.getContext('2d');
+  ctx2.clearRect(0,0,W,H);
+  ctx2.fillStyle = '#0a0f1e'; ctx2.fillRect(0,0,W,H);
+
+  const MARGIN = 50;
+  const usableW = W - MARGIN*2;
+  const n = PLAN_UBICACION_ORDER.length;
+  const slot = usableW / n;
+  const via1Y = H*0.38, via2Y = H*0.68;
+
+  // Eje / segmentos
+  ctx2.strokeStyle = 'rgba(100,116,139,.5)'; ctx2.lineWidth = 2;
+  ctx2.beginPath(); ctx2.moveTo(MARGIN, via1Y); ctx2.lineTo(W-MARGIN, via1Y); ctx2.stroke();
+  ctx2.beginPath(); ctx2.moveTo(MARGIN, via2Y); ctx2.lineTo(W-MARGIN, via2Y); ctx2.stroke();
+  ctx2.font = 'bold 9px Segoe UI'; ctx2.textAlign='left'; ctx2.fillStyle='rgba(148,163,184,.65)';
+  ctx2.fillText('VIA 1', 4, via1Y+3);
+  ctx2.fillText('VIA 2', 4, via2Y+3);
+  ctx2.textAlign='left'; ctx2.fillStyle='#00c6ff'; ctx2.font='bold 10px Segoe UI';
+  ctx2.fillText('← Callao', 2, 14);
+  ctx2.textAlign='right'; ctx2.fillStyle='#22c55e';
+  ctx2.fillText('Ate →', W-2, 14);
+
+  // Etiquetas de ubicacion (estaciones en caja, tuneles en texto simple)
+  PLAN_UBICACION_ORDER.forEach((loc, i) => {
+    const x = MARGIN + slot*(i+0.5);
+    const isStation = loc.startsWith('E');
+    ctx2.strokeStyle = 'rgba(71,85,105,.35)'; ctx2.lineWidth = 1; ctx2.setLineDash([2,4]);
+    ctx2.beginPath(); ctx2.moveTo(x, via1Y-14); ctx2.lineTo(x, via2Y+14); ctx2.stroke();
+    ctx2.setLineDash([]);
+    ctx2.font = isStation ? 'bold 9px Segoe UI' : '8px Segoe UI';
+    ctx2.textAlign = 'center';
+    ctx2.fillStyle = isStation ? 'rgba(192,132,252,.95)' : 'rgba(148,163,184,.55)';
+    ctx2.fillText(isStation ? loc : loc.replace('Tunel','T.'), x, H-6);
+  });
+
+  // Agrupar frentes activos (con personas>0) por ubicacion+via
+  const activeByKey = {}; // key = ubicacion|via -> {total, cuadrillas:[{nombre,personas,actividad}]}
+  CUADRILLAS.forEach(c => {
+    (planFrentesState[c] || []).forEach(f => {
+      if (!f.ubicacion || !(Number(f.personas) > 0)) return;
+      const key = f.ubicacion + '|' + (f.via || '');
+      if (!activeByKey[key]) activeByKey[key] = {ubicacion:f.ubicacion, via:f.via, total:0, detalle:[]};
+      activeByKey[key].total += Number(f.personas) || 0;
+      const actLabel = (ACTS.find(a => a.key === f.actividad) || {}).label || '';
+      activeByKey[key].detalle.push(`${c}: ${f.personas}p ${actLabel}`);
+    });
+  });
+
+  Object.values(activeByKey).forEach(entry => {
+    const idx = PLAN_UBICACION_ORDER.indexOf(entry.ubicacion);
+    if (idx < 0) return;
+    const x = MARGIN + slot*(idx+0.5);
+    const y = entry.via === 'Via 2' ? via2Y : via1Y; // sin via => Via 1 por defecto visual
+    const r = Math.min(16, 6 + entry.total*1.2);
+    const grad = ctx2.createRadialGradient(x,y,0,x,y,r);
+    grad.addColorStop(0, 'rgba(249,115,22,.9)');
+    grad.addColorStop(1, 'rgba(249,115,22,.05)');
+    ctx2.fillStyle = grad;
+    ctx2.beginPath(); ctx2.arc(x,y,r,0,Math.PI*2); ctx2.fill();
+    ctx2.strokeStyle = '#f97316'; ctx2.lineWidth = 1.5;
+    ctx2.beginPath(); ctx2.arc(x,y,Math.max(6,r*0.55),0,Math.PI*2); ctx2.stroke();
+    ctx2.fillStyle = '#fff'; ctx2.font = 'bold 9px Segoe UI'; ctx2.textAlign='center'; ctx2.textBaseline='middle';
+    ctx2.fillText(String(entry.total), x, y);
+    ctx2.textBaseline='alphabetic';
+    entry._x = x; entry._y = y; entry._r = r;
+  });
+
+  canvas._planEntries = Object.values(activeByKey);
+}
+
+function setupPlanLocationTooltip() {
+  const canvas = document.getElementById('plan-location-canvas');
+  if (!canvas || canvas._planTooltipBound) return;
+  canvas._planTooltipBound = true;
+  canvas.addEventListener('mousemove', (ev) => {
+    const rect = canvas.getBoundingClientRect();
+    const x = ev.clientX - rect.left, y = ev.clientY - rect.top;
+    const entries = canvas._planEntries || [];
+    const hit = entries.find(e => e._x != null && Math.hypot(x-e._x, y-e._y) <= (e._r||10)+4);
+    canvas.title = hit ? `${hit.ubicacion}${hit.via?(' · '+hit.via.replace('Via','Vía')):''}\n${hit.detalle.join('\n')}` : '';
+  });
+}
+setTimeout(setupPlanLocationTooltip, 500);
 
 function findCuadrillaBySafeId(safeId) {
   return CUADRILLAS.find(c => c.replace(/\s+/g,'_') === safeId) || safeId;
@@ -3173,6 +3287,7 @@ function updatePlanFrente(safeId, index, field, value) {
   else if (field === 'tipo') { list[index].tipo = value; list[index].ubicacion = (value==='estacion'?PLAN_ESTACIONES:PLAN_TUNELES)[0]; rerenderPlanCardFrentes(cuadrilla); }
   else if (field === 'ubicacion') list[index].ubicacion = value;
   else if (field === 'via') list[index].via = value;
+  else if (field === 'actividad') list[index].actividad = value;
   updatePlanCardPersonCount(cuadrilla);
 }
 
@@ -3185,15 +3300,17 @@ function rerenderPlanCardFrentes(cuadrilla) {
 function updatePlanCardPersonCount(cuadrilla) {
   const safeId = cuadrilla.replace(/\s+/g,'_');
   const label = document.getElementById('plan-total-' + safeId);
-  if (!label) return;
-  const total = planFrentesState[cuadrilla].reduce((sum,f) => sum + (Number(f.personas)||0), 0);
-  label.textContent = `(${total} pers. hoy)`;
+  if (label) {
+    const total = planFrentesState[cuadrilla].reduce((sum,f) => sum + (Number(f.personas)||0), 0);
+    label.textContent = `(${total} pers. hoy)`;
+  }
+  renderPlanLocationMap();
 }
 
 function addPlanFrente(safeId) {
   const cuadrilla = findCuadrillaBySafeId(safeId);
   if (!planFrentesState[cuadrilla]) planFrentesState[cuadrilla] = [];
-  planFrentesState[cuadrilla].push({personas:0, tipo:'tunel', ubicacion: PLAN_TUNELES[0], via:''});
+  planFrentesState[cuadrilla].push({personas:0, tipo:'tunel', ubicacion: PLAN_TUNELES[0], via:'', actividad: ACTS[0].key});
   rerenderPlanCardFrentes(cuadrilla);
   updatePlanCardPersonCount(cuadrilla);
 }
@@ -3202,7 +3319,7 @@ function removePlanFrente(safeId, index) {
   const cuadrilla = findCuadrillaBySafeId(safeId);
   if (!planFrentesState[cuadrilla]) return;
   planFrentesState[cuadrilla].splice(index, 1);
-  if (!planFrentesState[cuadrilla].length) planFrentesState[cuadrilla].push({personas:0, tipo:'tunel', ubicacion: PLAN_TUNELES[0], via:''});
+  if (!planFrentesState[cuadrilla].length) planFrentesState[cuadrilla].push({personas:0, tipo:'tunel', ubicacion: PLAN_TUNELES[0], via:'', actividad: ACTS[0].key});
   rerenderPlanCardFrentes(cuadrilla);
   updatePlanCardPersonCount(cuadrilla);
 }
@@ -3258,13 +3375,28 @@ async function savePlanCuadrilla(cuadrilla) {
   } else {
     if (status) status.textContent = `Plan de ${cuadrilla} guardado localmente.`;
   }
-  loadPlan();
+  if (status) status.textContent += ' Formulario limpiado — listo para el siguiente registro.';
+  clearPlanCardForm(cuadrilla);
   loadPlanHistory();
+}
+
+function clearPlanCardForm(cuadrilla) {
+  const safeId = cuadrilla.replace(/\s+/g,'_');
+  const textarea = document.getElementById('plan-text-' + safeId);
+  if (textarea) textarea.value = '';
+  planFrentesState[cuadrilla] = [{personas:0, tipo:'tunel', ubicacion: PLAN_TUNELES[0], via:'', actividad: ACTS[0].key}];
+  rerenderPlanCardFrentes(cuadrilla);
+  updatePlanCardPersonCount(cuadrilla);
+  const meta = document.getElementById('plan-meta-' + safeId);
+  if (meta) meta.textContent = `Guardado por ${document.getElementById('f-user')?.value || 'web'} · ${formatDateTimeLima(new Date())}`;
 }
 
 function formatFrentesSummary(frentes) {
   if (!Array.isArray(frentes) || !frentes.length) return '—';
-  return frentes.map(f => `${f.personas||0}p · ${f.tipo==='estacion'?'Estación':'Túnel'} ${f.ubicacion||'?'}${f.via?(' · '+f.via.replace('Via','Vía')):''}`).join('<br>');
+  return frentes.map(f => {
+    const actLabel = (ACTS.find(a => a.key === f.actividad) || {}).label || '';
+    return `${f.personas||0}p · ${f.tipo==='estacion'?'Estación':'Túnel'} ${f.ubicacion||'?'}${f.via?(' · '+f.via.replace('Via','Vía')):''}${actLabel?(' · '+actLabel):''}`;
+  }).join('<br>');
 }
 
 async function loadPlanHistory() {

@@ -25,6 +25,11 @@ checks = [
     ('Multi-user USERS map (Telice) exists', "const USERS" in html and "'Telice'" in html),
     ('checkPassword validates user+password', re.search(r'function checkPassword\s*\(', html) is not None and 'pwd-user-input' in html),
     ('Via 1 / Via 2 selector in plan frente row', "'Via 1'" in html and "'Via 2'" in html),
+    ('Actividad selector uses ACTS (Perforacion..Hilo)', 'planActividadOptions' in html and "updatePlanFrente('${safeId}',${index},'actividad'" in html),
+    ('Form clears after saving (clearPlanCardForm)', re.search(r'function clearPlanCardForm\s*\(', html) is not None and 'clearPlanCardForm(cuadrilla)' in html),
+    ('Real-time location map canvas exists', 'id="plan-location-canvas"' in html),
+    ('renderPlanLocationMap function defined', re.search(r'function renderPlanLocationMap\s*\(', html) is not None),
+    ('Physical PK order for tunnels/stations defined', 'PLAN_UBICACION_ORDER' in html),
 ]
 
 failed = [name for name, ok in checks if not ok]
