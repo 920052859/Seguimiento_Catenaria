@@ -580,7 +580,7 @@ function saveHistorySnapshot(body) {
 // PLAN DIARIO POR CUADRILLA (Sky 1, Sky 2, Bivial)
 // ============================================================
 function planHeaders() {
-  return ['fecha', 'cuadrilla', 'plan', 'usuario', 'fecha_update'];
+  return ['fecha', 'cuadrilla', 'plan', 'frentes_json', 'usuario', 'fecha_update'];
 }
 
 function ensurePlanSheet(ss) {
@@ -605,6 +605,9 @@ function savePlan(body) {
       return {ok:false, error:'Cuadrilla no reconocida: ' + cuadrilla};
     }
     const plan = String(body.plan || '');
+    // frentes: [{personas:Number, tipo:'tunel'|'estacion', ubicacion:String}, ...]
+    const frentes = Array.isArray(body.frentes) ? body.frentes : [];
+    const frentesJson = JSON.stringify(frentes);
     const usuario = String(body.usuario || 'web');
     const now = new Date();
     const data = ws.getLastRow() > 1 ? ws.getRange(2, 1, ws.getLastRow() - 1, 2).getValues() : [];
@@ -615,7 +618,7 @@ function savePlan(body) {
         break;
       }
     }
-    ws.getRange(targetRow, 1, 1, 5).setValues([[fecha, cuadrilla, plan, usuario, formatLimaDateTime(now)]]);
+    ws.getRange(targetRow, 1, 1, 6).setValues([[fecha, cuadrilla, plan, frentesJson, usuario, formatLimaDateTime(now)]]);
     SpreadsheetApp.flush();
     return {ok:true, fecha:fecha, cuadrilla:cuadrilla, fecha_update:formatLimaDateTime(now)};
   } finally {
@@ -628,12 +631,14 @@ function getPlanByDate(dateKey) {
   const ss = getSpreadsheet();
   const ws = ensurePlanSheet(ss);
   const planes = {};
-  CUADRILLAS.forEach(c => { planes[c] = {plan:'', usuario:'', fecha_update:''}; });
+  CUADRILLAS.forEach(c => { planes[c] = {plan:'', frentes:[], usuario:'', fecha_update:''}; });
   if (ws.getLastRow() >= 2) {
-    const data = ws.getRange(2, 1, ws.getLastRow() - 1, 5).getValues();
+    const data = ws.getRange(2, 1, ws.getLastRow() - 1, 6).getValues();
     data.forEach(row => {
       if (String(row[0]).trim() === key && CUADRILLAS.indexOf(String(row[1]).trim()) >= 0) {
-        planes[String(row[1]).trim()] = {plan: row[2] || '', usuario: row[3] || '', fecha_update: row[4] || ''};
+        let frentes = [];
+        try { frentes = JSON.parse(row[3] || '[]'); } catch (e) { frentes = []; }
+        planes[String(row[1]).trim()] = {plan: row[2] || '', frentes: frentes, usuario: row[4] || '', fecha_update: row[5] || ''};
       }
     });
   }
@@ -644,10 +649,15 @@ function getPlanHistory() {
   const ss = getSpreadsheet();
   const ws = ensurePlanSheet(ss);
   if (ws.getLastRow() < 2) return {ok:true, history:[]};
-  const data = ws.getRange(2, 1, ws.getLastRow() - 1, 5).getValues();
-  const history = data.filter(row => row[0]).map(row => ({
-    fecha: row[0], cuadrilla: row[1], plan: row[2], usuario: row[3], fecha_update: row[4]
-  })).sort((a, b) => String(b.fecha).localeCompare(String(a.fecha)));
+  const data = ws.getRange(2, 1, ws.getLastRow() - 1, 6).getValues();
+  const history = data.filter(row => row[0]).map(row => {
+    let frentes = [];
+    try { frentes = JSON.parse(row[3] || '[]'); } catch (e) { frentes = []; }
+    return {
+      fecha: row[0], cuadrilla: row[1], plan: row[2], frentes: frentes,
+      usuario: row[4], fecha_update: row[5]
+    };
+  }).sort((a, b) => String(b.fecha).localeCompare(String(a.fecha)));
   return {ok:true, history:history};
 }
 

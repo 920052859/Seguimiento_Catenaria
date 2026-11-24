@@ -34,7 +34,7 @@ print("PASS 7 - Vehicle positions on map")
 
 # 8. isViewerMode default true (starts as viewer)
 # requestEditorMode replaces toggleMode
-assert 'requestEditorMode' in s and 'EDITOR_PASSWORD' in s, "FAIL password gate"
+assert 'requestEditorMode' in s and 'USERS' in s and 'checkPassword' in s, "FAIL password gate"
 print("PASS 8 - Editor password gate")
 
 # 9. MAX_ZOOM still 120

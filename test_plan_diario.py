@@ -17,6 +17,13 @@ checks = [
     ('savePlanCuadrilla function defined', re.search(r'async function savePlanCuadrilla\s*\(', html) is not None),
     ('loadPlanHistory function defined', re.search(r'async function loadPlanHistory\s*\(', html) is not None),
     ('switchTab dispatches plan tab', "if (name === 'plan') loadPlan();" in html),
+    ('Frentes de trabajo (personas por tunel/estacion) field exists', 'PLAN_ESTACIONES' in html and 'PLAN_TUNELES' in html),
+    ('addPlanFrente function defined', re.search(r'function addPlanFrente\s*\(', html) is not None),
+    ('removePlanFrente function defined', re.search(r'function removePlanFrente\s*\(', html) is not None),
+    ('updatePlanFrente function defined', re.search(r'function updatePlanFrente\s*\(', html) is not None),
+    ('savePlanCuadrilla sends frentes payload', "frentes" in html and "save_plan" in html),
+    ('Multi-user USERS map (Telice) exists', "const USERS" in html and "'Telice'" in html),
+    ('checkPassword validates user+password', re.search(r'function checkPassword\s*\(', html) is not None and 'pwd-user-input' in html),
 ]
 
 failed = [name for name, ok in checks if not ok]
