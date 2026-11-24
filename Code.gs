@@ -12,6 +12,8 @@ const LOG_SHEET = 'Log';
 const DAILY_LOG_SHEET = 'Log_Diario';
 const VEHICLE_SHEET    = 'Vehiculos';
 const HISTORY_SHEET = 'Historico';
+const PLAN_SHEET = 'Plan_Diario';
+const CUADRILLAS = ['Sky 1', 'Sky 2', 'Bivial'];
 const ACTIVITIES = ['perforacion','fijacion','soporte','mensula','aislador','perfil','hilo'];
 const WEIGHTS = {
   perforacion: 0.10, fijacion: 0.20, soporte: 0.20, mensula: 0.10,
@@ -133,6 +135,8 @@ function doGet(e) {
     else if (action === 'daily_report') result = getDailyReport(e.parameter.date || '');
     else if (action === 'health') result = {ok:true, message:probarConexion()};
     else if (action === 'vehicle_positions') result = getVehiclePositions();
+    else if (action === 'plan') result = getPlanByDate(e.parameter.date || '');
+    else if (action === 'plan_history') result = getPlanHistory();
     else result = {ok:false, error:'Accion no reconocida: ' + action};
     return jsonResponse(result);
   } catch (err) {
@@ -148,6 +152,7 @@ function doPost(e) {
     else if (body.action === 'bulk_update') result = bulkUpdate(body.updates || []);
     else if (body.action === 'save_snapshot') result = saveHistorySnapshot(body);
     else if (body.action === 'save_vehicle_position') result = saveVehiclePosition(body);
+    else if (body.action === 'save_plan') result = savePlan(body);
     else result = {ok:false, error:'Accion no reconocida'};
     return jsonResponse(result);
   } catch (err) {
@@ -569,6 +574,81 @@ function saveHistorySnapshot(body) {
   } finally {
     lock.releaseLock();
   }
+}
+
+// ============================================================
+// PLAN DIARIO POR CUADRILLA (Sky 1, Sky 2, Bivial)
+// ============================================================
+function planHeaders() {
+  return ['fecha', 'cuadrilla', 'plan', 'usuario', 'fecha_update'];
+}
+
+function ensurePlanSheet(ss) {
+  let ws = ss.getSheetByName(PLAN_SHEET);
+  if (!ws) ws = ss.insertSheet(PLAN_SHEET);
+  if (ws.getLastRow() === 0) {
+    ws.getRange(1, 1, 1, planHeaders().length).setValues([planHeaders()]);
+    ws.setFrozenRows(1);
+  }
+  return ws;
+}
+
+function savePlan(body) {
+  const lock = LockService.getScriptLock();
+  lock.waitLock(10000);
+  try {
+    const ss = getSpreadsheet();
+    const ws = ensurePlanSheet(ss);
+    const fecha = String(body.fecha || limaDateKey(new Date())).trim();
+    const cuadrilla = String(body.cuadrilla || '').trim();
+    if (CUADRILLAS.indexOf(cuadrilla) < 0) {
+      return {ok:false, error:'Cuadrilla no reconocida: ' + cuadrilla};
+    }
+    const plan = String(body.plan || '');
+    const usuario = String(body.usuario || 'web');
+    const now = new Date();
+    const data = ws.getLastRow() > 1 ? ws.getRange(2, 1, ws.getLastRow() - 1, 2).getValues() : [];
+    let targetRow = ws.getLastRow() + 1;
+    for (let i = 0; i < data.length; i++) {
+      if (String(data[i][0]).trim() === fecha && String(data[i][1]).trim() === cuadrilla) {
+        targetRow = i + 2;
+        break;
+      }
+    }
+    ws.getRange(targetRow, 1, 1, 5).setValues([[fecha, cuadrilla, plan, usuario, formatLimaDateTime(now)]]);
+    SpreadsheetApp.flush();
+    return {ok:true, fecha:fecha, cuadrilla:cuadrilla, fecha_update:formatLimaDateTime(now)};
+  } finally {
+    lock.releaseLock();
+  }
+}
+
+function getPlanByDate(dateKey) {
+  const key = String(dateKey || limaDateKey(new Date())).trim();
+  const ss = getSpreadsheet();
+  const ws = ensurePlanSheet(ss);
+  const planes = {};
+  CUADRILLAS.forEach(c => { planes[c] = {plan:'', usuario:'', fecha_update:''}; });
+  if (ws.getLastRow() >= 2) {
+    const data = ws.getRange(2, 1, ws.getLastRow() - 1, 5).getValues();
+    data.forEach(row => {
+      if (String(row[0]).trim() === key && CUADRILLAS.indexOf(String(row[1]).trim()) >= 0) {
+        planes[String(row[1]).trim()] = {plan: row[2] || '', usuario: row[3] || '', fecha_update: row[4] || ''};
+      }
+    });
+  }
+  return {ok:true, fecha:key, planes:planes};
+}
+
+function getPlanHistory() {
+  const ss = getSpreadsheet();
+  const ws = ensurePlanSheet(ss);
+  if (ws.getLastRow() < 2) return {ok:true, history:[]};
+  const data = ws.getRange(2, 1, ws.getLastRow() - 1, 5).getValues();
+  const history = data.filter(row => row[0]).map(row => ({
+    fecha: row[0], cuadrilla: row[1], plan: row[2], usuario: row[3], fecha_update: row[4]
+  })).sort((a, b) => String(b.fecha).localeCompare(String(a.fecha)));
+  return {ok:true, history:history};
 }
 
 function guardarSnapshotSemanal() {

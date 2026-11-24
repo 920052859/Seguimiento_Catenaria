@@ -439,6 +439,7 @@ tbody td{padding:6px 10px;vertical-align:middle;white-space:nowrap}
   <div class="tab" onclick="switchTab('kpi')">📊 KPIs y Avance</div>
   <div class="tab" onclick="switchTab('table')">📋 Tabla Soportes</div>
   <div class="tab" onclick="switchTab('history')">📅 Histórico</div>
+  <div class="tab" onclick="switchTab('plan')">📝 Plan Diario</div>
   <div class="tab" onclick="switchTab('flota')">🚧 Flota</div>
   <div class="tab-mode-toggle" id="mode-toggle" onclick="requestEditorMode()">✏ Editor</div>
 </div>
@@ -674,6 +675,37 @@ tbody td{padding:6px 10px;vertical-align:middle;white-space:nowrap}
           <th>Soportes completados</th>
         </tr></thead>
         <tbody id="history-body"></tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<!-- PLAN DIARIO TAB — qué se va a realizar hoy por cuadrilla -->
+<div id="tab-plan" style="display:none;padding:16px 20px">
+  <div class="section-title">Plan Diario por Cuadrilla</div>
+  <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:14px;align-items:center">
+    <label style="font-size:.8rem;color:var(--text2)">Fecha:</label>
+    <input type="date" id="plan-date" style="padding:6px 10px;border-radius:6px;background:var(--bg3);border:1px solid var(--border);color:var(--text1)" onchange="loadPlan()">
+    <button class="btn btn-secondary allow-viewer" onclick="loadPlan()">↻ Actualizar</button>
+    <span id="plan-status" style="font-size:.76rem;color:var(--text3)"></span>
+  </div>
+  <div id="plan-cards" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:14px;margin-bottom:20px"></div>
+
+  <div class="section-title">Histórico de Planes Guardados</div>
+  <div class="table-wrap" style="padding:16px">
+    <div style="display:flex;gap:10px;margin-bottom:10px">
+      <button class="btn btn-secondary allow-viewer" onclick="loadPlanHistory()">↻ Actualizar historial</button>
+    </div>
+    <div style="overflow-x:auto">
+      <table style="width:100%;font-size:.78rem;border-collapse:collapse">
+        <thead><tr>
+          <th style="padding:6px 10px;background:var(--bg3);color:var(--text3);text-align:left">Fecha</th>
+          <th style="text-align:left">Cuadrilla</th>
+          <th style="text-align:left">Plan</th>
+          <th style="text-align:left">Usuario</th>
+          <th style="text-align:left">Actualizado</th>
+        </tr></thead>
+        <tbody id="plan-history-body"><tr><td colspan="5" style="text-align:center;padding:16px;color:var(--text3)">Cargando…</td></tr></tbody>
       </table>
     </div>
   </div>
@@ -1084,16 +1116,17 @@ function applyFilters() {
 // ============================================================
 function switchTab(name) {
   currentTab = name;
-  ['map','kpi','table','history','flota'].forEach(t => {
+  ['map','kpi','table','history','plan','flota'].forEach(t => {
     document.getElementById('tab-'+t).style.display = t === name ? '' : 'none';
   });
   document.querySelectorAll('.tab').forEach((el,i) => {
-    el.classList.toggle('active', ['map','kpi','table','history','flota'][i] === name);
+    el.classList.toggle('active', ['map','kpi','table','history','plan','flota'][i] === name);
   });
   if (name === 'map') renderMap();
   if (name === 'history') renderHistory();
   if (name === 'kpi') { setTimeout(renderSPI, 120); }
   if (name === 'kpi') { setTimeout(setupSPITooltip, 250); }
+  if (name === 'plan') loadPlan();
   if (name === 'flota') renderFlota();
 }
 
@@ -3018,6 +3051,131 @@ function closeReport() { document.getElementById('rpt-modal').classList.remove('
 
 function exportReportPDF() {
   window.print();
+}
+
+// ============================================================
+// PLAN DIARIO POR CUADRILLA (Sky 1, Sky 2, Bivial)
+// ============================================================
+const CUADRILLAS = ['Sky 1', 'Sky 2', 'Bivial'];
+const PLAN_LOCAL_KEY = 'catenaria_plan_diario_v1';
+
+function planLocalStore() {
+  try { return JSON.parse(localStorage.getItem(PLAN_LOCAL_KEY)) || {}; }
+  catch (e) { return {}; }
+}
+
+function planLocalSave(store) {
+  try { localStorage.setItem(PLAN_LOCAL_KEY, JSON.stringify(store)); } catch (e) {}
+}
+
+function initPlanDateInput() {
+  const input = document.getElementById('plan-date');
+  if (input && !input.value) input.value = limaDateKeyClient();
+}
+
+function renderPlanCards(fecha, planes) {
+  const cards = document.getElementById('plan-cards');
+  if (!cards) return;
+  cards.innerHTML = CUADRILLAS.map(c => {
+    const safeId = c.replace(/\s+/g,'_');
+    const data = planes[c] || {plan:'', usuario:'', fecha_update:''};
+    const metaText = data.fecha_update ? `Guardado por ${data.usuario||'—'} · ${data.fecha_update}` : 'Sin registrar aun';
+    return `
+      <div class="card" style="background:var(--bg3);border-radius:10px;padding:14px;border:1px solid var(--border)">
+        <div style="font-weight:700;color:var(--accent);margin-bottom:8px">🛠 ${c}</div>
+        <textarea id="plan-text-${safeId}" placeholder="¿Qué va a realizar ${c} hoy?" style="width:100%;min-height:90px;resize:vertical;padding:8px;border-radius:6px;background:var(--bg2);border:1px solid var(--border);color:var(--text1);font-size:.82rem" ${isViewerMode ? 'disabled' : ''}>${data.plan||''}</textarea>
+        <div style="font-size:.7rem;color:var(--text3);margin:6px 0 10px">${metaText}</div>
+        <button class="btn btn-primary allow-viewer" onclick="savePlanCuadrilla('${c}')" ${isViewerMode ? 'disabled style="opacity:.5;cursor:not-allowed"' : ''}>💾 Guardar plan</button>
+      </div>`;
+  }).join('');
+}
+
+async function loadPlan() {
+  initPlanDateInput();
+  const fecha = document.getElementById('plan-date').value || limaDateKeyClient();
+  const status = document.getElementById('plan-status');
+  if (status) status.textContent = 'Cargando...';
+  let planes = null;
+  if (!usingLocalFallback && APPS_SCRIPT_URL) {
+    try {
+      const separator = APPS_SCRIPT_URL.includes('?') ? '&' : '?';
+      const resp = await fetch(`${APPS_SCRIPT_URL}${separator}action=plan&date=${fecha}`);
+      const json = await resp.json();
+      if (json.ok) planes = json.planes;
+    } catch (e) { /* fallback abajo */ }
+  }
+  if (!planes) {
+    const store = planLocalStore();
+    planes = store[fecha] || {};
+  }
+  renderPlanCards(fecha, planes);
+  if (status) status.textContent = usingLocalFallback ? 'Modo local (sin conexión al backend)' : '';
+}
+
+async function savePlanCuadrilla(cuadrilla) {
+  const fecha = document.getElementById('plan-date').value || limaDateKeyClient();
+  const safeId = cuadrilla.replace(/\s+/g,'_');
+  const textarea = document.getElementById('plan-text-' + safeId);
+  const plan = textarea ? textarea.value : '';
+  const usuario = document.getElementById('f-user') ? (document.getElementById('f-user').value || 'web') : 'web';
+  const status = document.getElementById('plan-status');
+  if (status) status.textContent = `Guardando plan de ${cuadrilla}...`;
+
+  // Respaldo local inmediato
+  const store = planLocalStore();
+  if (!store[fecha]) store[fecha] = {};
+  store[fecha][cuadrilla] = {plan, usuario, fecha_update: formatDateTimeLima(new Date())};
+  planLocalSave(store);
+
+  if (!usingLocalFallback && APPS_SCRIPT_URL) {
+    try {
+      await fetch(APPS_SCRIPT_URL, {
+        method: 'POST',
+        body: JSON.stringify({action:'save_plan', fecha, cuadrilla, plan, usuario})
+      });
+      if (status) status.textContent = `Plan de ${cuadrilla} guardado.`;
+    } catch (e) {
+      if (status) status.textContent = `Plan de ${cuadrilla} guardado localmente (sin conexión al backend).`;
+    }
+  } else {
+    if (status) status.textContent = `Plan de ${cuadrilla} guardado localmente.`;
+  }
+  loadPlan();
+  loadPlanHistory();
+}
+
+async function loadPlanHistory() {
+  const tbody = document.getElementById('plan-history-body');
+  if (!tbody) return;
+  tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;padding:16px;color:var(--text3)">Cargando…</td></tr>';
+  let history = [];
+  if (!usingLocalFallback && APPS_SCRIPT_URL) {
+    try {
+      const separator = APPS_SCRIPT_URL.includes('?') ? '&' : '?';
+      const resp = await fetch(`${APPS_SCRIPT_URL}${separator}action=plan_history&_=${Date.now()}`);
+      const json = await resp.json();
+      if (json.ok) history = json.history;
+    } catch (e) { /* fallback abajo */ }
+  }
+  if (!history.length) {
+    const store = planLocalStore();
+    Object.keys(store).forEach(fecha => {
+      Object.keys(store[fecha]).forEach(cuadrilla => {
+        const d = store[fecha][cuadrilla];
+        history.push({fecha, cuadrilla, plan: d.plan, usuario: d.usuario, fecha_update: d.fecha_update});
+      });
+    });
+    history.sort((a,b) => String(b.fecha).localeCompare(String(a.fecha)));
+  }
+  tbody.innerHTML = history.length
+    ? history.map(h => `<tr>
+        <td style="padding:6px 10px">${h.fecha}</td>
+        <td>${h.cuadrilla}</td>
+        <td style="max-width:360px;white-space:pre-wrap">${(h.plan||'').replace(/</g,'&lt;')}</td>
+        <td>${h.usuario||'—'}</td>
+        <td>${h.fecha_update||'—'}</td>
+      </tr>`).join('')
+    : '<tr><td colspan="5" style="text-align:center;padding:16px;color:var(--text3)">Sin planes guardados aún</td></tr>';
 }
 
 async function refreshFlota() {
