@@ -702,7 +702,7 @@ tbody td{padding:6px 10px;vertical-align:middle;white-space:nowrap}
           <th style="padding:6px 10px;background:var(--bg3);color:var(--text3);text-align:left">Fecha</th>
           <th style="text-align:left">Cuadrilla</th>
           <th style="text-align:left">Plan</th>
-          <th style="text-align:left">Frentes (personas / ubicación)</th>
+          <th style="text-align:left">Frentes (personas / ubicación / vía)</th>
           <th style="text-align:left">Usuario</th>
           <th style="text-align:left">Actualizado</th>
         </tr></thead>
@@ -3108,6 +3108,7 @@ function planFrenteRowHtml(cuadrilla, index, frente) {
   const tipo = frente.tipo === 'estacion' ? 'estacion' : 'tunel';
   const personas = frente.personas != null ? frente.personas : '';
   const ubicacion = frente.ubicacion || '';
+  const via = frente.via || '';
   return `
     <div class="plan-frente-row" data-idx="${index}" style="display:flex;gap:6px;align-items:center;margin-bottom:6px;flex-wrap:wrap">
       <input type="number" min="0" step="1" value="${personas}" placeholder="N° personas"
@@ -3122,6 +3123,12 @@ function planFrenteRowHtml(cuadrilla, index, frente) {
         onchange="updatePlanFrente('${safeId}',${index},'ubicacion',this.value)" ${isViewerMode ? 'disabled' : ''}>
         ${planUbicacionOptions(tipo, ubicacion)}
       </select>
+      <select style="padding:5px 7px;border-radius:5px;background:var(--bg2);border:1px solid var(--border);color:var(--text1);font-size:.78rem;min-width:90px"
+        onchange="updatePlanFrente('${safeId}',${index},'via',this.value)" ${isViewerMode ? 'disabled' : ''}>
+        <option value="" ${via===''?'selected':''}>Vía —</option>
+        <option value="Via 1" ${via==='Via 1'?'selected':''}>Vía 1</option>
+        <option value="Via 2" ${via==='Via 2'?'selected':''}>Vía 2</option>
+      </select>
       ${isViewerMode ? '' : `<button class="btn btn-secondary" style="padding:4px 8px;font-size:.72rem" onclick="removePlanFrente('${safeId}',${index})">✕</button>`}
     </div>`;
 }
@@ -3133,8 +3140,8 @@ function renderPlanCards(fecha, planes) {
   CUADRILLAS.forEach(c => {
     const data = planes[c] || {};
     planFrentesState[c] = Array.isArray(data.frentes) && data.frentes.length
-      ? data.frentes.map(f => ({personas: f.personas != null ? Number(f.personas) : 0, tipo: f.tipo === 'estacion' ? 'estacion' : 'tunel', ubicacion: f.ubicacion || ''}))
-      : [{personas:0, tipo:'tunel', ubicacion: PLAN_TUNELES[0]}];
+      ? data.frentes.map(f => ({personas: f.personas != null ? Number(f.personas) : 0, tipo: f.tipo === 'estacion' ? 'estacion' : 'tunel', ubicacion: f.ubicacion || '', via: f.via || ''}))
+      : [{personas:0, tipo:'tunel', ubicacion: PLAN_TUNELES[0], via:''}];
   });
   cards.innerHTML = CUADRILLAS.map(c => {
     const safeId = c.replace(/\s+/g,'_');
@@ -3165,6 +3172,7 @@ function updatePlanFrente(safeId, index, field, value) {
   if (field === 'personas') list[index].personas = Math.max(0, parseInt(value,10) || 0);
   else if (field === 'tipo') { list[index].tipo = value; list[index].ubicacion = (value==='estacion'?PLAN_ESTACIONES:PLAN_TUNELES)[0]; rerenderPlanCardFrentes(cuadrilla); }
   else if (field === 'ubicacion') list[index].ubicacion = value;
+  else if (field === 'via') list[index].via = value;
   updatePlanCardPersonCount(cuadrilla);
 }
 
@@ -3185,7 +3193,7 @@ function updatePlanCardPersonCount(cuadrilla) {
 function addPlanFrente(safeId) {
   const cuadrilla = findCuadrillaBySafeId(safeId);
   if (!planFrentesState[cuadrilla]) planFrentesState[cuadrilla] = [];
-  planFrentesState[cuadrilla].push({personas:0, tipo:'tunel', ubicacion: PLAN_TUNELES[0]});
+  planFrentesState[cuadrilla].push({personas:0, tipo:'tunel', ubicacion: PLAN_TUNELES[0], via:''});
   rerenderPlanCardFrentes(cuadrilla);
   updatePlanCardPersonCount(cuadrilla);
 }
@@ -3194,7 +3202,7 @@ function removePlanFrente(safeId, index) {
   const cuadrilla = findCuadrillaBySafeId(safeId);
   if (!planFrentesState[cuadrilla]) return;
   planFrentesState[cuadrilla].splice(index, 1);
-  if (!planFrentesState[cuadrilla].length) planFrentesState[cuadrilla].push({personas:0, tipo:'tunel', ubicacion: PLAN_TUNELES[0]});
+  if (!planFrentesState[cuadrilla].length) planFrentesState[cuadrilla].push({personas:0, tipo:'tunel', ubicacion: PLAN_TUNELES[0], via:''});
   rerenderPlanCardFrentes(cuadrilla);
   updatePlanCardPersonCount(cuadrilla);
 }
@@ -3256,7 +3264,7 @@ async function savePlanCuadrilla(cuadrilla) {
 
 function formatFrentesSummary(frentes) {
   if (!Array.isArray(frentes) || !frentes.length) return '—';
-  return frentes.map(f => `${f.personas||0}p · ${f.tipo==='estacion'?'Estación':'Túnel'} ${f.ubicacion||'?'}`).join('<br>');
+  return frentes.map(f => `${f.personas||0}p · ${f.tipo==='estacion'?'Estación':'Túnel'} ${f.ubicacion||'?'}${f.via?(' · '+f.via.replace('Via','Vía')):''}`).join('<br>');
 }
 
 async function loadPlanHistory() {

@@ -24,6 +24,7 @@ checks = [
     ('savePlanCuadrilla sends frentes payload', "frentes" in html and "save_plan" in html),
     ('Multi-user USERS map (Telice) exists', "const USERS" in html and "'Telice'" in html),
     ('checkPassword validates user+password', re.search(r'function checkPassword\s*\(', html) is not None and 'pwd-user-input' in html),
+    ('Via 1 / Via 2 selector in plan frente row', "'Via 1'" in html and "'Via 2'" in html),
 ]
 
 failed = [name for name, ok in checks if not ok]
